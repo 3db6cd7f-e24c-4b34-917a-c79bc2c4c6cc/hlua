@@ -33,6 +33,7 @@ macro_rules! implement_lua_read {
             }
         }
 
+        #[allow(clippy::mut_mut)]
         impl<'s, 'b, 'c> hlua::LuaRead<&'b mut &'c mut hlua::InsideCallback> for &'s mut $ty {
             #[inline]
             fn lua_read_at_position(lua: &'b mut &'c mut hlua::InsideCallback, index: i32) -> Result<&'s mut $ty, &'b mut &'c mut hlua::InsideCallback> {
@@ -46,6 +47,7 @@ macro_rules! implement_lua_read {
             }
         }
 
+        #[allow(clippy::mut_mut)]
         impl<'s, 'b, 'c> hlua::LuaRead<&'b mut &'c mut hlua::InsideCallback> for &'s $ty {
             #[inline]
             fn lua_read_at_position(lua: &'b mut &'c mut hlua::InsideCallback, index: i32) -> Result<&'s $ty, &'b mut &'c mut hlua::InsideCallback> {
