@@ -65,7 +65,7 @@ impl<'lua, L> Push<L> for AnyLuaValue
 
                 // We also need to destroy and recreate the push guard, otherwise the type parameter
                 // doesn't match.
-                let size = val.push_no_err(&mut lua as &mut AsMutLua<'lua>).forget_internal();
+                let size = val.push_no_err(&mut lua as &mut dyn AsMutLua<'lua>).forget_internal();
 
                 Ok(PushGuard {
                     lua: lua,
@@ -102,12 +102,12 @@ impl<'lua, L> LuaRead<L> for AnyLuaValue
         let data_type = unsafe { ffi::lua_type(lua.as_lua().0, index) };
         if data_type == ffi::LUA_TSTRING {
 
-            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyLuaValue::LuaString(v)),
                 Err(lua) => lua,
             };
 
-            let _lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let _lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyLuaValue::LuaAnyString(v)),
                 Err(lua) => lua,
             };
@@ -116,22 +116,22 @@ impl<'lua, L> LuaRead<L> for AnyLuaValue
 
         } else {
 
-            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyLuaValue::LuaNumber(v)),
                 Err(lua) => lua,
             };
 
-            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyLuaValue::LuaBoolean(v)),
                 Err(lua) => lua,
             };
 
-            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyLuaValue::LuaString(v)),
                 Err(lua) => lua,
             };
 
-            let lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyLuaValue::LuaAnyString(v)),
                 Err(lua) => lua,
             };
@@ -174,7 +174,7 @@ impl<'lua, L> Push<L> for AnyHashableLuaValue
 
                 // We also need to destroy and recreate the push guard, otherwise the type parameter
                 // doesn't match.
-                let size = val.push_no_err(&mut lua as &mut AsMutLua<'lua>).forget_internal();
+                let size = val.push_no_err(&mut lua as &mut dyn AsMutLua<'lua>).forget_internal();
 
                 Ok(PushGuard {
                     lua: lua,
@@ -207,12 +207,12 @@ impl<'lua, L> LuaRead<L> for AnyHashableLuaValue
         let data_type = unsafe { ffi::lua_type(lua.as_lua().0, index) };
         if data_type == ffi::LUA_TSTRING {
 
-            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyHashableLuaValue::LuaString(v)),
                 Err(lua) => lua,
             };
 
-            let _lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let _lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyHashableLuaValue::LuaAnyString(v)),
                 Err(lua) => lua,
             };
@@ -221,22 +221,22 @@ impl<'lua, L> LuaRead<L> for AnyHashableLuaValue
 
         } else {
 
-            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyHashableLuaValue::LuaNumber(v)),
                 Err(lua) => lua,
             };
 
-            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyHashableLuaValue::LuaBoolean(v)),
                 Err(lua) => lua,
             };
 
-            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyHashableLuaValue::LuaString(v)),
                 Err(lua) => lua,
             };
 
-            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index) {
+            let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
                 Ok(v) => return Ok(AnyHashableLuaValue::LuaAnyString(v)),
                 Err(lua) => lua,
             };
@@ -245,7 +245,7 @@ impl<'lua, L> LuaRead<L> for AnyHashableLuaValue
                 return Ok(AnyHashableLuaValue::LuaNil);
             }
 
-            let table: Result<LuaTable<_>, _> = LuaRead::lua_read_at_position(&mut lua as &mut AsMutLua<'lua>, index);
+            let table: Result<LuaTable<_>, _> = LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index);
             let _lua = match table {
                 Ok(mut v) => return Ok(AnyHashableLuaValue::LuaArray(v
                     .iter::<AnyHashableLuaValue, AnyHashableLuaValue>()

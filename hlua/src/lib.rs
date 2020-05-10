@@ -225,13 +225,13 @@ impl<'lua, L> PushGuard<L>
     pub fn into_inner(mut self) -> L {
         use std::{mem, ptr};
 
-        let mut res;
-        unsafe {
-            res = mem::uninitialized();
-            ptr::copy_nonoverlapping(&self.lua, &mut res, 1);
+        let res = unsafe {
+            let mut res = mem::MaybeUninit::uninit();
+            ptr::copy_nonoverlapping(&self.lua, res.as_mut_ptr(), 1);
             if self.size != 0 {
                 ffi::lua_pop(self.lua.as_mut_lua().0, self.size);
             }
+            res.assume_init()
         };
         mem::forget(self);
 
@@ -444,7 +444,7 @@ impl Error for LuaError {
         }
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         use LuaError::*;
 
         match *self {
@@ -675,7 +675,7 @@ impl<'lua> Lua<'lua> {
     pub fn execute<'a, T>(&'a mut self, code: &str) -> Result<T, LuaError>
         where T: for<'g> LuaRead<PushGuard<&'g mut PushGuard<&'a mut Lua<'lua>>>>
     {
-        let mut f = try!(lua_functions::LuaFunction::load(self, code));
+        let mut f = lua_functions::LuaFunction::load(self, code)?;
         f.call()
     }
 
@@ -703,7 +703,7 @@ impl<'lua> Lua<'lua> {
         where T: for<'g> LuaRead<PushGuard<&'g mut PushGuard<&'a mut Lua<'lua>>>>,
               R: Read
     {
-        let mut f = try!(lua_functions::LuaFunction::load_from_reader(self, code));
+        let mut f = lua_functions::LuaFunction::load_from_reader(self, code)?;
         f.call()
     }
 

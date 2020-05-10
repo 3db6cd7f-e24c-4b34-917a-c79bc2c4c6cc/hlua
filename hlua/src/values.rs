@@ -35,9 +35,9 @@ macro_rules! integer_impl(
         impl<'lua, L> LuaRead<L> for $t where L: AsLua<'lua> {
             #[inline]
             fn lua_read_at_position(lua: L, index: i32) -> Result<$t, L> {
-                let mut success = unsafe { mem::uninitialized() };
-                let val = unsafe { ffi::lua_tointegerx(lua.as_lua().0, index, &mut success) };
-                match success {
+                let mut success = mem::MaybeUninit::uninit();
+                let val = unsafe { ffi::lua_tointegerx(lua.as_lua().0, index, success.as_mut_ptr()) };
+                match unsafe { success.assume_init() } {
                     0 => Err(lua),
                     _ => Ok(val as $t)
                 }
@@ -70,9 +70,9 @@ macro_rules! unsigned_impl(
         impl<'lua, L> LuaRead<L> for $t where L: AsLua<'lua> {
             #[inline]
             fn lua_read_at_position(lua: L, index: i32) -> Result<$t, L> {
-                let mut success = unsafe { mem::uninitialized() };
-                let val = unsafe { ffi::lua_tounsignedx(lua.as_lua().0, index, &mut success) };
-                match success {
+                let mut success = mem::MaybeUninit::uninit();
+                let val = unsafe { ffi::lua_tounsignedx(lua.as_lua().0, index, success.as_mut_ptr()) };
+                match unsafe { success.assume_init() } {
                     0 => Err(lua),
                     _ => Ok(val as $t)
                 }
@@ -105,9 +105,9 @@ macro_rules! numeric_impl(
         impl<'lua, L> LuaRead<L> for $t where L: AsLua<'lua> {
             #[inline]
             fn lua_read_at_position(lua: L, index: i32) -> Result<$t, L> {
-                let mut success = unsafe { mem::uninitialized() };
-                let val = unsafe { ffi::lua_tonumberx(lua.as_lua().0, index, &mut success) };
-                match success {
+                let mut success = mem::MaybeUninit::uninit();
+                let val = unsafe { ffi::lua_tonumberx(lua.as_lua().0, index, success.as_mut_ptr()) };
+                match unsafe { success.assume_init() } {
                     0 => Err(lua),
                     _ => Ok(val as $t)
                 }
@@ -148,12 +148,14 @@ impl<'lua, L> LuaRead<L> for String
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<String, L> {
-        let mut size: libc::size_t = unsafe { mem::uninitialized() };
-        let c_str_raw = unsafe { ffi::lua_tolstring(lua.as_lua().0, index, &mut size) };
+        let mut size = mem::MaybeUninit::uninit();
+        let c_str_raw = unsafe { ffi::lua_tolstring(lua.as_lua().0, index, size.as_mut_ptr()) };
         if c_str_raw.is_null() {
             return Err(lua);
         }
 
+        let size = unsafe { size.assume_init() };
+        
         let c_slice = unsafe { slice::from_raw_parts(c_str_raw as *const u8, size) };
         let maybe_string = String::from_utf8(c_slice.to_vec());
         match maybe_string {
@@ -191,11 +193,13 @@ impl<'lua, L> LuaRead<L> for AnyLuaString
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<AnyLuaString, L> {
-        let mut size: libc::size_t = unsafe { mem::uninitialized() };
-        let c_str_raw = unsafe { ffi::lua_tolstring(lua.as_lua().0, index, &mut size) };
+        let mut size = mem::MaybeUninit::uninit();
+        let c_str_raw = unsafe { ffi::lua_tolstring(lua.as_lua().0, index, size.as_mut_ptr()) };
         if c_str_raw.is_null() {
             return Err(lua);
         }
+
+        let size = unsafe { size.assume_init() };
 
         let c_slice = unsafe { slice::from_raw_parts(c_str_raw as *const u8, size) };
         Ok(AnyLuaString(c_slice.to_vec()))
@@ -254,11 +258,13 @@ impl<'lua, L> LuaRead<L> for StringInLua<L>
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<StringInLua<L>, L> {
-        let mut size: libc::size_t = unsafe { mem::uninitialized() };
-        let c_str_raw = unsafe { ffi::lua_tolstring(lua.as_lua().0, index, &mut size) };
+        let mut size = mem::MaybeUninit::uninit();
+        let c_str_raw = unsafe { ffi::lua_tolstring(lua.as_lua().0, index, size.as_mut_ptr()) };
         if c_str_raw.is_null() {
             return Err(lua);
         }
+
+        let size = unsafe { size.assume_init() };
 
         let c_slice = unsafe { slice::from_raw_parts(c_str_raw as *const u8, size) };
         match str::from_utf8(c_slice) {
@@ -294,7 +300,7 @@ impl<'lua, L> Push<L> for bool
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
-        unsafe { ffi::lua_pushboolean(lua.as_mut_lua().0, self.clone() as libc::c_int) };
+        unsafe { ffi::lua_pushboolean(lua.as_mut_lua().0, self as libc::c_int) };
         let raw_lua = lua.as_lua();
         Ok(PushGuard {
             lua: lua,
@@ -311,7 +317,7 @@ impl<'lua, L> LuaRead<L> for bool
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<bool, L> {
-        if unsafe { ffi::lua_isboolean(lua.as_lua().0, index) } != true {
+        if !unsafe { ffi::lua_isboolean(lua.as_lua().0, index) } {
             return Err(lua);
         }
 

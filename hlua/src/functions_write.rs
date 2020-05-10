@@ -206,7 +206,7 @@ macro_rules! impl_function_ext {
                     // pushing the function pointer as a userdata
                     let lua_data = ffi::lua_newuserdata(lua.as_mut_lua().0,
                                                         mem::size_of::<Z>() as libc::size_t);
-                    let lua_data: *mut Z = mem::transmute(lua_data);
+                    let lua_data: *mut Z = lua_data as *mut Z;
                     ptr::write(lua_data, self.function);
 
                     let lua_raw = lua.as_mut_lua();
@@ -273,7 +273,7 @@ macro_rules! impl_function_ext {
                     // pushing the function pointer as a userdata
                     let lua_data = ffi::lua_newuserdata(lua.as_mut_lua().0,
                                                         mem::size_of::<Z>() as libc::size_t);
-                    let lua_data: *mut Z = mem::transmute(lua_data);
+                    let lua_data: *mut Z = lua_data as *mut Z;
                     ptr::write(lua_data, self.function);
 
                     let lua_raw = lua.as_mut_lua();
@@ -369,7 +369,7 @@ impl<'a, T, E, P> Push<&'a mut InsideCallback> for Result<T, E>
         match self {
             Ok(val) => val.push_to_lua(lua),
             Err(val) => {
-                Ok((AnyLuaValue::LuaNil, format!("{}", val)).push_no_err(lua))
+                Ok((AnyLuaValue::LuaNil, val.to_string()).push_no_err(lua))
             }
         }
     }
@@ -390,7 +390,7 @@ extern "C" fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
 {
     // loading the object that we want to call from the Lua context
     let data_raw = unsafe { ffi::lua_touserdata(lua, ffi::lua_upvalueindex(1)) };
-    let data: &mut T = unsafe { mem::transmute(data_raw) };
+    let data: &mut T = unsafe { &mut *(data_raw as *mut T) };
 
     // creating a temporary Lua context in order to pass it to push & read functions
     let mut tmp_lua = InsideCallback { lua: LuaContext(lua) };
@@ -399,7 +399,7 @@ extern "C" fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
     let arguments_count = unsafe { ffi::lua_gettop(lua) } as i32;
     let args = match LuaRead::lua_read_at_position(&mut tmp_lua, -arguments_count as libc::c_int) {      // TODO: what if the user has the wrong params?
         Err(_) => {
-            let err_msg = format!("wrong parameter types for callback function");
+            let err_msg = "wrong parameter types for callback function";
             match err_msg.push_to_lua(&mut tmp_lua) {
                 Ok(p) => p.forget_internal(),
                 Err(_) => unreachable!(),

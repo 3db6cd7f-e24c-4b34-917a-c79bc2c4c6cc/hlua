@@ -461,10 +461,9 @@ impl<'t, 'lua, L, K, V> Iterator for LuaTableIterator<'t, L, K, V>
             // Removing the value, leaving only the key on the top of the stack.
             ffi::lua_pop(me.table.as_mut_lua().0, 1);
 
-            if key.is_none() || value.is_none() {
-                Some(None)
-            } else {
-                Some(Some((key.unwrap(), value.unwrap())))
+            match (key, value) {
+                (Some(key), Some(value)) => Some(Some((key, value))),
+                _ => Some(None)
             }
         }
     }

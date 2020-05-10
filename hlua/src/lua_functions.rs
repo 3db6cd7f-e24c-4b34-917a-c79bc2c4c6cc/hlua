@@ -96,7 +96,7 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
 
             let mut read_data = ReadData {
                 reader: self.0,
-                buffer: mem::uninitialized(),
+                buffer: mem::zeroed(),
                 triggered_error: None,
             };
 
@@ -389,7 +389,7 @@ impl<E> Error for LuaFunctionCallError<E>
         }
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         match *self {
             LuaFunctionCallError::LuaError(ref lua_error) => Some(lua_error),
             LuaFunctionCallError::PushError(ref err) => Some(err),
@@ -405,7 +405,7 @@ impl Error for LuaFunctionCallError<Void> {
         }
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         match *self {
             LuaFunctionCallError::LuaError(ref lua_error) => Some(lua_error),
             _ => unreachable!("Void cannot be instantiated"),
@@ -533,7 +533,7 @@ mod tests {
         let res: Result<(), _> = lua.execute_from_reader(reader);
         match res {
             Ok(_) => panic!("Reading succeded"),
-            Err(LuaError::ReadError(e)) => { assert_eq!("oh no!", e.description()) },
+            Err(LuaError::ReadError(e)) => { assert_eq!("oh no!", e.to_string()) },
             Err(_) => panic!("Unexpected error happened"),
         }
     }

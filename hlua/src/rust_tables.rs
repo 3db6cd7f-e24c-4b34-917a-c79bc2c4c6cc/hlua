@@ -181,7 +181,7 @@ impl<'a, 'lua, L, T, E> Push<L> for &'a [T]
 
     #[inline]
     fn push_to_lua(self, lua: L) -> Result<PushGuard<L>, (E, L)> {
-        push_iter(lua, self.iter().map(|e| e.clone()))
+        push_iter(lua, self.iter().cloned())
     }
 }
 
@@ -439,7 +439,7 @@ mod tests {
     fn reading_hashmap_works() {
         let mut lua = Lua::new();
 
-        let orig: HashMap<i32, f64> = [1., 2., 3.].into_iter().enumerate().map(|(k, v)| (k as i32, *v as f64)).collect();
+        let orig: HashMap<i32, f64> = [1., 2., 3.].iter().enumerate().map(|(k, v)| (k as i32, *v as f64)).collect();
         let orig_copy = orig.clone();
         // Collect to BTreeMap so that iterator yields values in order
         let orig_btree: BTreeMap<_, _> = orig_copy.into_iter().collect();
