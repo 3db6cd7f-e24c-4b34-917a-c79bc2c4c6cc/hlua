@@ -82,16 +82,8 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
         ffi::lua_newtable(lua.as_mut_lua().0);
 
         // Index "__gc" in the metatable calls the object's destructor.
-
-        // TODO: Could use std::intrinsics::needs_drop to avoid that if not needed.
-        // After some discussion on IRC, it would be acceptable to add a reexport in libcore
-        // without going through the RFC process.
-        {
-            match "__gc".push_to_lua(&mut lua) {
-                Ok(p) => p.forget(),
-                Err(_) => unreachable!(),
-            };
-
+        if mem::needs_drop::<T>() {
+            "__gc".push_no_err(&mut lua).forget();
             ffi::lua_pushcfunction(lua.as_mut_lua().0, destructor_wrapper::<T>);
             ffi::lua_settable(lua.as_mut_lua().0, -3);
         }
