@@ -372,6 +372,20 @@ where T: PushOne<L, Err = E>,
 {
 }
 
+impl<'lua, T, L> LuaRead<L> for Option<T>
+    where T: LuaRead<L>,
+          L: AsLua<'lua>
+{
+    #[inline]
+    fn lua_read_at_position(lua: L, index: i32) -> Result<Option<T>, L> {
+        if unsafe { ffi::lua_isnil(lua.as_lua().0, index) } {
+            return Ok(None);
+        }
+
+        T::lua_read_at_position(lua, index).map(Some)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use AnyLuaValue;
@@ -540,5 +554,15 @@ mod tests {
 
         assert_eq!(lua.get("no_value"), None::<String>);
         assert_eq!(lua.get("some_value"), Some("Hello!".to_string()));
+    }
+
+    #[test]
+    fn read_opt() {
+        let mut lua = Lua::new();
+
+        lua.set("is_some", ::function1(|foo: Option<String>| foo.is_some()));
+
+        assert_eq!(lua.execute::<bool>("return is_some('foo')").unwrap(), true);
+        assert_eq!(lua.execute::<bool>("return is_some(nil)").unwrap(), false);
     }
 }
