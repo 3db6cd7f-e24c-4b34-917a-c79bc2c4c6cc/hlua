@@ -462,6 +462,12 @@ impl From<io::Error> for LuaError {
     }
 }
 
+impl<'lua> Default for Lua<'lua> {
+    fn default() -> Lua<'lua> {
+        Self::new()
+    }
+}
+
 impl<'lua> Lua<'lua> {
     /// Builds a new empty Lua context.
     ///
