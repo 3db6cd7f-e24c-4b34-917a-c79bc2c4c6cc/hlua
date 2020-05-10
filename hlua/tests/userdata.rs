@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate hlua;
 
 #[test]
@@ -221,4 +222,37 @@ fn multiple_userdata() {
         broadcast_mul(Integer(114), big_integer.clone()));
     assert_eq!(lua.execute::<f32>("return collapse(19.25, c, v)").unwrap(),
         collapse(19.25, Integer(96), big_integer.clone()));
+}
+
+#[test]
+fn metatables_reused() {
+    struct Foo;
+    implement_lua_push!(Foo, |mut meta| meta.set("__eq", hlua::function0(|| true)));
+
+    let mut lua = hlua::Lua::new();
+
+    lua.set("a", Foo);
+    lua.set("b", Foo);
+
+    let equals: bool = lua.execute("return a == b").unwrap();
+    assert!(equals);
+}
+
+#[test]
+fn metatables_different() {
+    struct Foo;
+    struct Bar;
+
+    // Lua only calls __eq if both objects share metatable.
+    // If __eq gets called the two different types share a metatable, which is NOT good.
+    implement_lua_push!(Foo, |mut meta| meta.set("__eq", hlua::function0(|| true)));
+    implement_lua_push!(Bar, |mut meta| meta.set("__eq", hlua::function0(|| true)));
+
+    let mut lua = hlua::Lua::new();
+
+    lua.set("a", Foo);
+    lua.set("b", Bar);
+
+    let equals: bool = lua.execute("return a == b").unwrap();
+    assert!(!equals);
 }

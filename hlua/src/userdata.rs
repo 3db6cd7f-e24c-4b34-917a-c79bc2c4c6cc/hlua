@@ -76,31 +76,87 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
         let data_loc = (lua_data as *const u8).offset(mem::size_of_val(&typeid) as isize);
         ptr::write(data_loc as *mut _, data);
 
-        let lua_raw = lua.as_mut_lua();
+        let lua_raw = lua.as_mut_lua().0;
 
-        // Creating a metatable.
-        ffi::lua_newtable(lua.as_mut_lua().0);
+        // Ensure that our logic below is operating on the memory it is intended to.
+        debug_assert_eq!(mem::size_of_val(&typeid), mem::size_of::<u64>());
 
-        // Index "__gc" in the metatable calls the object's destructor.
-        if mem::needs_drop::<T>() {
-            "__gc".push_no_err(&mut lua).forget();
-            ffi::lua_pushcfunction(lua.as_mut_lua().0, destructor_wrapper::<T>);
-            ffi::lua_settable(lua.as_mut_lua().0, -3);
+        let type_id_bytes = mem::transmute::<_, [u8; 8]>(typeid);
+        let type_id_u64 = mem::transmute::<_, u64>(typeid);
+
+        // Allocate a 10 byte slice.
+        // [0-7] TypeId with each byte with LSB set to avoid \0.
+        // [8]   Checksum of all bytes to help avoid potential collisions.
+        // [9]   Terminating \0.
+        let mut type_key = [0u8; 10];
+
+        let type_id_u64 = type_id_u64 | 0x01_01_01_01_01_01_01_01;
+        std::ptr::write(type_key.as_mut_ptr() as _, type_id_u64);
+        type_key[8] = type_id_bytes.iter().copied().fold(0, u8::wrapping_add);
+
+        // A pointer to the data above that we'll pass to Lua.
+        let type_key_ptr = type_key.as_ptr() as _;
+
+        ffi::lua_getfield(lua_raw, ffi::LUA_REGISTRYINDEX, type_key_ptr);
+        //| -2 userdata (data: T)
+        //| -1 nil | table (metatable)
+        if ffi::lua_isnil(lua_raw, -1) {
+            //| -2 userdata (data: T)
+            //| -1 nil
+
+            // Creating and registering the type T's metatable.
+            {
+                ffi::lua_pop(lua_raw, 1);
+                //| -1 userdata (data: T)
+                ffi::lua_newtable(lua_raw);
+                //| -2 userdata (data: T)
+                //| -1 table (metatable)
+                ffi::lua_pushvalue(lua_raw, -1);
+                //| -3 userdata (data: T)
+                //| -2 table (metatable)
+                //| -1 table (metatable)
+                ffi::lua_setfield(lua_raw, ffi::LUA_REGISTRYINDEX, type_key_ptr);
+                //| -2 userdata (data: T)
+                //| -1 table (metatable)
+            }
+
+            // Assigning __gc implementation if required.
+            {
+                // Index "__gc" in the metatable calls the object's destructor.
+                // Only assign it if the type T needs to be explicitly dropped.
+                if mem::needs_drop::<T>() {
+                    "__gc".push_no_err(&mut lua).forget();
+                    //| -3 userdata (data: T)
+                    //| -2 table (metatable)
+                    //| -1 string ("__gc")
+                    ffi::lua_pushcfunction(lua_raw, destructor_wrapper::<T>);
+                    //| -4 userdata (data: T)
+                    //| -3 table (metatable)
+                    //| -2 string ("__gc")
+                    //| -1 cfunction (destructor_wrapper::<T>)
+                    ffi::lua_settable(lua_raw, -3);
+                    //| -2 userdata (data: T)
+                    //| -1 table (metatable)
+                }
+            }
+            
+            // Calling the metatable closure.
+            {
+                let raw_lua = lua.as_lua();
+                let mut guard = PushGuard {
+                    lua: &mut lua,
+                    size: 1,
+                    raw_lua,
+                };
+                metatable(LuaRead::lua_read(&mut guard).ok().unwrap());
+                guard.forget();
+            }
         }
+        //| -2 userdata (data: T)
+        //| -1 table (metatable)
 
-        // Calling the metatable closure.
-        {
-            let raw_lua = lua.as_lua();
-            let mut guard = PushGuard {
-                lua: &mut lua,
-                size: 1,
-                raw_lua: raw_lua,
-            };
-            metatable(LuaRead::lua_read(&mut guard).ok().unwrap());
-            guard.forget();
-        }
-
-        ffi::lua_setmetatable(lua_raw.0, -2);
+        ffi::lua_setmetatable(lua_raw, -2);
+        //| -2 userdata (data: T)
     }
 
     let raw_lua = lua.as_lua();
