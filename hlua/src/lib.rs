@@ -400,6 +400,11 @@ pub trait LuaRead<L>: Sized {
 
     /// Reads the data from Lua at a given position.
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L>;
+    
+    /// Returns a value to be used when a successful read is impossible.
+    fn lua_read_out_of_bounds(lua: L) -> Result<Self, L> {
+        Err(lua)
+    }
 }
 
 /// Error that can happen when executing Lua code.

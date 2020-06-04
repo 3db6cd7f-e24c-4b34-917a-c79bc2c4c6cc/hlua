@@ -378,11 +378,16 @@ impl<'lua, T, L> LuaRead<L> for Option<T>
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<Option<T>, L> {
-        if unsafe { ffi::lua_isnil(lua.as_lua().0, index) } {
+        if unsafe { ffi::lua_isnoneornil(lua.as_lua().0, index) } {
             return Ok(None);
         }
 
         T::lua_read_at_position(lua, index).map(Some)
+    }
+
+    #[inline]
+    fn lua_read_out_of_bounds(_: L) -> Result<Self, L> {
+        Ok(None)
     }
 }
 

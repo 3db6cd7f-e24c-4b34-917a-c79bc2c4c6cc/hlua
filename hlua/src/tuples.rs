@@ -78,6 +78,7 @@ macro_rules! tuple_impl {
         {
             #[inline]
             fn lua_read_at_position(mut lua: LU, index: i32) -> Result<($first, $($other),+), LU> {
+                let negative = index.is_negative();
                 let mut i = index;
 
                 let $first: $first = match LuaRead::lua_read_at_position(&mut lua, i) {
@@ -88,9 +89,18 @@ macro_rules! tuple_impl {
                 i += 1;
 
                 $(
-                    let $other: $other = match LuaRead::lua_read_at_position(&mut lua, i) {
-                        Ok(v) => v,
-                        Err(_) => return Err(lua)
+                    let $other: $other = {
+                        // Prevent wrapping around if we're reading too far into the stack (-2, -1, 0, 1, ...)
+                        let read = if negative == i.is_negative() {
+                            LuaRead::lua_read_at_position(&mut lua, i)
+                        } else {
+                            LuaRead::lua_read_out_of_bounds(&mut lua)
+                        };
+
+                        match read {
+                            Ok(v) => v,
+                            Err(_) => return Err(lua)
+                        }
                     };
                     i += 1;
                 )+
@@ -119,4 +129,19 @@ impl From<TuplePushError<Void, Void>> for Void {
     fn from(_: TuplePushError<Void, Void>) -> Void {
         unreachable!()
     }
+}
+
+
+#[test]
+fn no_stack_wrap() {
+    let mut lua = crate::Lua::new();
+
+    lua.set("foo", ::function3(|a: u32, b: Option<f32>, c: Option<f32>| {
+        a == 10 && b.is_none() && c.is_none()
+    }));
+    
+    assert_eq!(lua.execute::<bool>("return foo(10,  20,  30)").unwrap(), false);
+    assert_eq!(lua.execute::<bool>("return foo(10, nil, nil)").unwrap(), true);
+    assert_eq!(lua.execute::<bool>("return foo(10, nil)").unwrap(), true);
+    assert_eq!(lua.execute::<bool>("return foo(10)").unwrap(), true);
 }
