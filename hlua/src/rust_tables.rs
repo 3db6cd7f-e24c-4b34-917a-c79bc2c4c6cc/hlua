@@ -18,8 +18,8 @@ fn push_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, 
           V: for<'b> Push<&'b mut L, Err = E>,
           I: Iterator<Item = V>
 {
-    // creating empty table
-    unsafe { ffi::lua_newtable(lua.as_mut_lua().0) };
+    // creating empty table with pre-allocated array elements
+    unsafe { ffi::lua_createtable(lua.as_mut_lua().0, iterator.size_hint().0 as i32, 0) };
 
     for (elem, index) in iterator.zip(1..) {
         let size = match elem.push_to_lua(&mut lua) {
