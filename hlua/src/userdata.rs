@@ -108,7 +108,7 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
             {
                 ffi::lua_pop(lua_raw, 1);
                 //| -1 userdata (data: T)
-                ffi::lua_newtable(lua_raw);
+                ffi::lua_createtable(lua_raw, 0, mem::needs_drop::<T>() as i32);
                 //| -2 userdata (data: T)
                 //| -1 table (metatable)
                 ffi::lua_pushvalue(lua_raw, -1);
@@ -120,26 +120,23 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
                 //| -1 table (metatable)
             }
 
-            // Assigning __gc implementation if required.
-            {
-                // Index "__gc" in the metatable calls the object's destructor.
-                // Only assign it if the type T needs to be explicitly dropped.
-                if mem::needs_drop::<T>() {
-                    "__gc".push_no_err(&mut lua).forget();
-                    //| -3 userdata (data: T)
-                    //| -2 table (metatable)
-                    //| -1 string ("__gc")
-                    ffi::lua_pushcfunction(lua_raw, destructor_wrapper::<T>);
-                    //| -4 userdata (data: T)
-                    //| -3 table (metatable)
-                    //| -2 string ("__gc")
-                    //| -1 cfunction (destructor_wrapper::<T>)
-                    ffi::lua_settable(lua_raw, -3);
-                    //| -2 userdata (data: T)
-                    //| -1 table (metatable)
-                }
+            // Index "__gc" in the metatable calls the object's destructor.
+            // Only assign it if the type T needs to be explicitly dropped.
+            if mem::needs_drop::<T>() {
+                "__gc".push_no_err(&mut lua).forget();
+                //| -3 userdata (data: T)
+                //| -2 table (metatable)
+                //| -1 string ("__gc")
+                ffi::lua_pushcfunction(lua_raw, destructor_wrapper::<T>);
+                //| -4 userdata (data: T)
+                //| -3 table (metatable)
+                //| -2 string ("__gc")
+                //| -1 cfunction (destructor_wrapper::<T>)
+                ffi::lua_settable(lua_raw, -3);
+                //| -2 userdata (data: T)
+                //| -1 table (metatable)
             }
-            
+
             // Calling the metatable closure.
             {
                 let raw_lua = lua.as_lua();
