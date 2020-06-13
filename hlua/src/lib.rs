@@ -975,8 +975,8 @@ impl<L> Drop for PushGuard<L> {
 
 #[cfg(test)]
 mod tests {
-    use Lua;
-    use LuaError;
+    use crate::Lua;
+    use crate::LuaError;
 
     #[test]
     fn open_base_opens_base_library() {

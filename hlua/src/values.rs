@@ -6,15 +6,15 @@ use std::ops::Deref;
 use ffi;
 use libc;
 
-use AnyLuaValue;
-use AnyLuaString;
-use AsLua;
-use AsMutLua;
-use LuaRead;
-use Push;
-use PushGuard;
-use PushOne;
-use Void;
+use crate::AnyLuaValue;
+use crate::AnyLuaString;
+use crate::AsLua;
+use crate::AsMutLua;
+use crate::LuaRead;
+use crate::Push;
+use crate::PushGuard;
+use crate::PushOne;
+use crate::Void;
 
 macro_rules! integer_impl(
     ($t:ident) => (
@@ -393,10 +393,10 @@ impl<'lua, T, L> LuaRead<L> for Option<T>
 
 #[cfg(test)]
 mod tests {
-    use AnyLuaValue;
-    use AnyLuaString;
-    use Lua;
-    use StringInLua;
+    use crate::AnyLuaValue;
+    use crate::AnyLuaString;
+    use crate::Lua;
+    use crate::StringInLua;
 
     #[test]
     fn read_i32s() {
@@ -541,8 +541,8 @@ mod tests {
     fn push_opt() {
         let mut lua = Lua::new();
 
-        lua.set("some", ::function0(|| Some(123)));
-        lua.set("none", ::function0(|| Option::None::<i32>));
+        lua.set("some", crate::function0(|| Some(123)));
+        lua.set("none", crate::function0(|| Option::None::<i32>));
 
         match lua.execute::<i32>("return some()") {
             Ok(123) => {}
@@ -565,7 +565,7 @@ mod tests {
     fn read_opt() {
         let mut lua = Lua::new();
 
-        lua.set("is_some", ::function1(|foo: Option<String>| foo.is_some()));
+        lua.set("is_some", crate::function1(|foo: Option<String>| foo.is_some()));
 
         assert_eq!(lua.execute::<bool>("return is_some('foo')").unwrap(), true);
         assert_eq!(lua.execute::<bool>("return is_some(nil)").unwrap(), false);

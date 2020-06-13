@@ -7,15 +7,15 @@ use std::ptr;
 use ffi;
 use libc;
 
-use AsLua;
-use AsMutLua;
-use Push;
-use PushGuard;
-use LuaContext;
-use LuaRead;
+use crate::AsLua;
+use crate::AsMutLua;
+use crate::Push;
+use crate::PushGuard;
+use crate::LuaContext;
+use crate::LuaRead;
 
-use InsideCallback;
-use LuaTable;
+use crate::InsideCallback;
+use crate::LuaTable;
 
 // Called when an object inside Lua is being dropped.
 #[inline]

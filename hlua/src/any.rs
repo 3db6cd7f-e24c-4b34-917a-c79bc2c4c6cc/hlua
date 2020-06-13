@@ -1,14 +1,14 @@
 use ffi;
 
-use AsLua;
-use AsMutLua;
+use crate::AsLua;
+use crate::AsMutLua;
 
-use Push;
-use PushGuard;
-use PushOne;
-use LuaRead;
-use LuaTable;
-use Void;
+use crate::Push;
+use crate::PushGuard;
+use crate::PushOne;
+use crate::LuaRead;
+use crate::LuaTable;
+use crate::Void;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AnyLuaString(pub Vec<u8>);
@@ -260,10 +260,10 @@ impl<'lua, L> LuaRead<L> for AnyHashableLuaValue
 
 #[cfg(test)]
 mod tests {
-    use Lua;
-    use AnyLuaValue;
-    use AnyHashableLuaValue;
-    use AnyLuaString;
+    use crate::Lua;
+    use crate::AnyLuaValue;
+    use crate::AnyHashableLuaValue;
+    use crate::AnyLuaString;
 
     #[test]
     fn read_numbers() {

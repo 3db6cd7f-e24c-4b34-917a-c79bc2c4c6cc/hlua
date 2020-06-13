@@ -1,15 +1,15 @@
 use ffi;
 use libc;
 
-use AnyLuaValue;
-use AsLua;
-use AsMutLua;
-use LuaContext;
-use LuaRead;
-use Push;
-use PushGuard;
-use PushOne;
-use Void;
+use crate::AnyLuaValue;
+use crate::AsLua;
+use crate::AsMutLua;
+use crate::LuaContext;
+use crate::LuaRead;
+use crate::Push;
+use crate::PushGuard;
+use crate::PushOne;
+use crate::Void;
 
 use std::marker::PhantomData;
 use std::fmt::Display;
@@ -424,11 +424,11 @@ extern "C" fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
 
 #[cfg(test)]
 mod tests {
-    use Lua;
-    use LuaError;
-    use function0;
-    use function1;
-    use function2;
+    use crate::Lua;
+    use crate::LuaError;
+    use crate::function0;
+    use crate::function1;
+    use crate::function2;
 
     use std::sync::Arc;
 

@@ -7,6 +7,7 @@ keywords = ["lua"]
 repository = "https://github.com/tomaka/hlua"
 documentation = "http://docs.rs/hlua"
 license = "MIT"
+edition = "2018"
 
 [dependencies]
 libc = "0.2"

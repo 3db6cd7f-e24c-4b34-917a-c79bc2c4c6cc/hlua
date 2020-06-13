@@ -1,11 +1,11 @@
-use AsMutLua;
-use AsLua;
+use crate::AsMutLua;
+use crate::AsLua;
 
-use Push;
-use PushOne;
-use PushGuard;
-use LuaRead;
-use Void;
+use crate::Push;
+use crate::PushOne;
+use crate::PushGuard;
+use crate::LuaRead;
+use crate::Void;
 
 macro_rules! tuple_impl {
     ($ty:ident) => (
@@ -136,7 +136,7 @@ impl From<TuplePushError<Void, Void>> for Void {
 fn no_stack_wrap() {
     let mut lua = crate::Lua::new();
 
-    lua.set("foo", ::function3(|a: u32, b: Option<f32>, c: Option<f32>| {
+    lua.set("foo", crate::function3(|a: u32, b: Option<f32>, c: Option<f32>| {
         a == 10 && b.is_none() && c.is_none()
     }));
     
