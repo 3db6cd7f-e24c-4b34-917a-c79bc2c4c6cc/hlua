@@ -104,6 +104,7 @@
 //!   the return type of [`execute`](struct.Lua.html#method.execute).
 //! - TODO: userdata
 //!
+#![allow(clippy::missing_safety_doc)] // TODO: Document instead
 
 // Export the version of lua52_sys in use by this crate. This allows clients to perform low-level
 // Lua operations without worrying about semver.

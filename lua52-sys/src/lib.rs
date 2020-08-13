@@ -2,6 +2,7 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 #![allow(improper_ctypes)]
+#![allow(clippy::missing_safety_doc)] // TODO: Document instead
 
 extern crate libc;
 
