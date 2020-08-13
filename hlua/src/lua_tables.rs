@@ -103,9 +103,9 @@ impl<'lua, L> LuaTable<L>
     #[inline]
     pub fn iter<K, V>(&mut self) -> LuaTableIterator<L, K, V> {
         unsafe {
-            ffi::lua_pushnil(self.table.as_mut_lua().0);
+            let raw_lua = self.table.as_mut_lua();
+            ffi::lua_pushnil(raw_lua.0);
 
-            let raw_lua = self.table.as_lua();
             LuaTableIterator {
                 table: self,
                 finished: false,
@@ -153,11 +153,11 @@ impl<'lua, L> LuaTable<L>
             // TODO: remove this by simplifying the PushOne requirement ; however this is complex
             //       because of the empty_array method
             let mut me = self;
+            let raw_lua = me.as_mut_lua();
 
             index.push_no_err(&mut me).assert_one_and_forget();
-            ffi::lua_gettable(me.as_mut_lua().0, me.offset(-1));
+            ffi::lua_gettable(raw_lua.0, me.offset(-1));
 
-            let raw_lua = me.as_lua();
             let guard = PushGuard {
                 lua: me,
                 size: 1,
@@ -183,9 +183,9 @@ impl<'lua, L> LuaTable<L>
         unsafe {
             index.push_no_err(&mut self).assert_one_and_forget();
 
-            ffi::lua_gettable(self.as_mut_lua().0, self.offset(-1));
+            let raw_lua = self.as_mut_lua();
+            ffi::lua_gettable(raw_lua.0, self.offset(-1));
 
-            let raw_lua = self.as_lua();
             let guard = PushGuard {
                 lua: self,
                 size: 1,
@@ -343,16 +343,17 @@ impl<'lua, L> LuaTable<L>
     #[inline]
     pub fn get_or_create_metatable(mut self) -> LuaTable<PushGuard<L>> {
         unsafe {
+            let raw_lua = self.as_mut_lua();
+
             // We put the metatable at the top of the stack.
-            if ffi::lua_getmetatable(self.table.as_mut_lua().0, self.index) == 0 {
+            if ffi::lua_getmetatable(raw_lua.0, self.index) == 0 {
                 // No existing metatable ; create one then set it and reload it.
-                ffi::lua_newtable(self.table.as_mut_lua().0);
-                ffi::lua_setmetatable(self.table.as_mut_lua().0, self.offset(-1));
-                let r = ffi::lua_getmetatable(self.table.as_mut_lua().0, self.index);
+                ffi::lua_newtable(raw_lua.0);
+                ffi::lua_setmetatable(raw_lua.0, self.offset(-1));
+                let r = ffi::lua_getmetatable(raw_lua.0, self.index);
                 debug_assert!(r != 0);
             }
 
-            let raw_lua = self.as_lua();
             LuaTable {
                 table: PushGuard {
                     lua: self.table,
@@ -446,8 +447,10 @@ impl<'t, 'lua, L, K, V> Iterator for LuaTableIterator<'t, L, K, V>
 
             // As a reminder, the key is always at the top of the stack unless `finished` is true.
 
+            let raw_lua = self.table.as_mut_lua();
+
             // This call pops the current key and pushes the next key and value at the top.
-            if ffi::lua_next(self.table.as_mut_lua().0, self.table.offset(-1)) == 0 {
+            if ffi::lua_next(raw_lua.0, self.table.offset(-1)) == 0 {
                 self.finished = true;
                 return None;
             }
@@ -458,7 +461,7 @@ impl<'t, 'lua, L, K, V> Iterator for LuaTableIterator<'t, L, K, V>
             let value = LuaRead::lua_read_at_position(&mut me, -1).ok();
 
             // Removing the value, leaving only the key on the top of the stack.
-            ffi::lua_pop(me.table.as_mut_lua().0, 1);
+            ffi::lua_pop(raw_lua.0, 1);
 
             match (key, value) {
                 (Some(key), Some(value)) => Some(Some((key, value))),

@@ -1,6 +1,3 @@
-use ffi;
-use libc;
-
 use crate::AnyLuaValue;
 use crate::AsLua;
 use crate::AsMutLua;
@@ -203,16 +200,15 @@ macro_rules! impl_function_ext {
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe {
-                    let lua_raw = lua.as_mut_lua().0;
-
+                    let raw_lua = lua.as_mut_lua();
                     // pushing the function pointer as a userdata
-                    let lua_data = ffi::lua_newuserdata(lua_raw,
+                    let lua_data = ffi::lua_newuserdata(raw_lua.0,
                                                         mem::size_of::<Z>() as libc::size_t);
                     let lua_data: *mut Z = lua_data as *mut Z;
                     ptr::write(lua_data, self.function);
 
                     // Creating a metatable.
-                    ffi::lua_newtable(lua_raw);
+                    ffi::lua_newtable(raw_lua.0);
 
                     // Index "__gc" in the metatable calls the object's destructor.
                     if mem::needs_drop::<Z>() {
@@ -221,16 +217,15 @@ macro_rules! impl_function_ext {
                             Err(_) => unreachable!(),
                         };
 
-                        ffi::lua_pushcfunction(lua_raw, closure_destructor_wrapper::<Z>);
-                        ffi::lua_settable(lua_raw, -3);
+                        ffi::lua_pushcfunction(raw_lua.0, closure_destructor_wrapper::<Z>);
+                        ffi::lua_settable(raw_lua.0, -3);
                     }
-                    ffi::lua_setmetatable(lua_raw, -2);
+                    ffi::lua_setmetatable(raw_lua.0, -2);
 
                     // pushing wrapper as a closure
                     let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(lua_raw, wrapper, 1);
-                    let raw_lua = lua.as_lua();
-                    Ok(PushGuard { lua: lua, size: 1, raw_lua: raw_lua })
+                    ffi::lua_pushcclosure(raw_lua.0, wrapper, 1);
+                    Ok(PushGuard { lua, size: 1, raw_lua })
                 }
             }
         }
@@ -266,9 +261,9 @@ macro_rules! impl_function_ext {
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe {
-                    let lua_raw = lua.as_mut_lua().0;
+                    let raw_lua = lua.as_mut_lua();
                     // pushing the function pointer as a userdata
-                    let lua_data = ffi::lua_newuserdata(lua_raw,
+                    let lua_data = ffi::lua_newuserdata(raw_lua.0,
                                                         mem::size_of::<Z>() as libc::size_t);
                     let lua_data: *mut Z = lua_data as *mut Z;
                     ptr::write(lua_data, self.function);
@@ -276,24 +271,23 @@ macro_rules! impl_function_ext {
                     // Index "__gc" in the metatable calls the object's destructor.
                     if mem::needs_drop::<Z>() {
                         // Creating a metatable.    
-                        ffi::lua_newtable(lua_raw);
+                        ffi::lua_newtable(raw_lua.0);
 
                         match "__gc".push_to_lua(&mut lua) {
                             Ok(p) => p.forget_internal(),
                             Err(_) => unreachable!(),
                         };
 
-                        ffi::lua_pushcfunction(lua_raw, closure_destructor_wrapper::<Z>);
-                        ffi::lua_settable(lua_raw, -3);
+                        ffi::lua_pushcfunction(raw_lua.0, closure_destructor_wrapper::<Z>);
+                        ffi::lua_settable(raw_lua.0, -3);
 
-                        ffi::lua_setmetatable(lua_raw, -2);
+                        ffi::lua_setmetatable(raw_lua.0, -2);
                     }
 
                     // pushing wrapper as a closure
                     let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(lua_raw, wrapper, 1);
-                    let raw_lua = lua.as_lua();
-                    Ok(PushGuard { lua: lua, size: 1, raw_lua: raw_lua })
+                    ffi::lua_pushcclosure(raw_lua.0, wrapper, 1);
+                    Ok(PushGuard { lua, size: 1, raw_lua })
                 }
             }
         }

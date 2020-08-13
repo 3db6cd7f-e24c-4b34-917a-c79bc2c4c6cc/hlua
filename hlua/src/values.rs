@@ -3,9 +3,6 @@ use std::slice;
 use std::str;
 use std::ops::Deref;
 
-use ffi;
-use libc;
-
 use crate::AnyLuaValue;
 use crate::AnyLuaString;
 use crate::AsLua;
@@ -23,8 +20,8 @@ macro_rules! integer_impl(
 
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
-                unsafe { ffi::lua_pushinteger(lua.as_mut_lua().0, self as ffi::lua_Integer) };
-                let raw_lua = lua.as_lua();
+                let raw_lua = lua.as_mut_lua();
+                unsafe { ffi::lua_pushinteger(raw_lua.0, self as ffi::lua_Integer) };
                 Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }
@@ -58,8 +55,8 @@ macro_rules! unsigned_impl(
 
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
-                unsafe { ffi::lua_pushunsigned(lua.as_mut_lua().0, self as ffi::lua_Unsigned) };
-                let raw_lua = lua.as_lua();
+                let raw_lua = lua.as_mut_lua();
+                unsafe { ffi::lua_pushunsigned(raw_lua.0, self as ffi::lua_Unsigned) };
                 Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }
@@ -93,8 +90,8 @@ macro_rules! numeric_impl(
 
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
-                unsafe { ffi::lua_pushnumber(lua.as_mut_lua().0, self as f64) };
-                let raw_lua = lua.as_lua();
+                let raw_lua = lua.as_mut_lua();
+                unsafe { ffi::lua_pushnumber(raw_lua.0, self as f64) };
                 Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }
@@ -127,11 +124,11 @@ impl<'lua, L> Push<L> for String
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
         unsafe {
-            ffi::lua_pushlstring(lua.as_mut_lua().0,
+            let raw_lua = lua.as_mut_lua();
+            ffi::lua_pushlstring(raw_lua.0,
                                  self.as_bytes().as_ptr() as *const _,
                                  self.as_bytes().len() as libc::size_t);
 
-            let raw_lua = lua.as_lua();
             Ok(PushGuard {
                 lua,
                 size: 1,
@@ -174,11 +171,11 @@ impl<'lua, L> Push<L> for AnyLuaString
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
         let AnyLuaString(v) = self;
         unsafe {
-            ffi::lua_pushlstring(lua.as_mut_lua().0,
+            let raw_lua = lua.as_mut_lua();
+            ffi::lua_pushlstring(raw_lua.0,
                                  v[..].as_ptr() as *const _,
                                  v[..].len() as libc::size_t);
 
-            let raw_lua = lua.as_lua();
             Ok(PushGuard {
                 lua,
                 size: 1,
@@ -214,11 +211,11 @@ impl<'lua, 's, L> Push<L> for &'s str
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
         unsafe {
-            ffi::lua_pushlstring(lua.as_mut_lua().0,
+            let raw_lua = lua.as_mut_lua();
+            ffi::lua_pushlstring(raw_lua.0,
                                  self.as_bytes().as_ptr() as *const _,
                                  self.as_bytes().len() as libc::size_t);
 
-            let raw_lua = lua.as_lua();
             Ok(PushGuard {
                 lua,
                 size: 1,
@@ -300,8 +297,8 @@ impl<'lua, L> Push<L> for bool
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
-        unsafe { ffi::lua_pushboolean(lua.as_mut_lua().0, self as libc::c_int) };
-        let raw_lua = lua.as_lua();
+        let raw_lua = lua.as_mut_lua();
+        unsafe { ffi::lua_pushboolean(raw_lua.0, self as libc::c_int) };
         Ok(PushGuard {
             lua,
             size: 1,
@@ -317,11 +314,12 @@ impl<'lua, L> LuaRead<L> for bool
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<bool, L> {
-        if !unsafe { ffi::lua_isboolean(lua.as_lua().0, index) } {
+        let raw_lua = lua.as_lua();
+        if !unsafe { ffi::lua_isboolean(raw_lua.0, index) } {
             return Err(lua);
         }
 
-        Ok(unsafe { ffi::lua_toboolean(lua.as_lua().0, index) != 0 })
+        Ok(unsafe { ffi::lua_toboolean(raw_lua.0, index) != 0 })
     }
 }
 

@@ -125,12 +125,12 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
             }
 
             let (load_return_value, pushed_value) = {
-                let code = ffi::lua_load(lua.as_mut_lua().0,
+                let raw_lua = lua.as_mut_lua();
+                let code = ffi::lua_load(raw_lua.0,
                                          reader::<R>,
                                          &mut read_data as *mut ReadData<_> as *mut libc::c_void,
                                          b"chunk\0".as_ptr() as *const _,
                                          ptr::null());
-                let raw_lua = lua.as_lua();
                 (code,
                  PushGuard {
                      lua,
@@ -265,14 +265,13 @@ impl<'lua, L> LuaFunction<L>
         // calling pcall pops the parameters and pushes output
         let (pcall_return_value, pushed_value) = unsafe {
             // lua_pcall pops the function, so we have to make a copy of it
-            ffi::lua_pushvalue(self.variable.as_mut_lua().0, -1);
+            let raw_lua = self.variable.as_mut_lua();
+            ffi::lua_pushvalue(raw_lua.0, -1);
             let num_pushed = match args.push_to_lua(self) {
                 Ok(g) => g.forget_internal(),
                 Err((err, _)) => return Err(LuaFunctionCallError::PushError(err)),
             };
-            let pcall_return_value = ffi::lua_pcall(self.variable.as_mut_lua().0, num_pushed, 1, 0);     // TODO: num ret values
-
-            let raw_lua = self.variable.as_lua();
+            let pcall_return_value = ffi::lua_pcall(raw_lua.0, num_pushed, 1, 0);     // TODO: num ret values
             let guard = PushGuard {
                 lua: &mut self.variable,
                 size: 1,
