@@ -749,7 +749,7 @@ impl<'lua> Lua<'lua> {
             let _guard = PushGuard {
                 lua: self,
                 size: 1,
-                raw_lua: raw_lua,
+                raw_lua,
             };
             return None;
         }
@@ -757,7 +757,7 @@ impl<'lua> Lua<'lua> {
         let guard = PushGuard {
             lua: self,
             size: 1,
-            raw_lua: raw_lua,
+            raw_lua,
         };
         LuaRead::lua_read(guard).ok()
     }
@@ -777,7 +777,7 @@ impl<'lua> Lua<'lua> {
         let guard = PushGuard {
             lua: self,
             size: 1,
-            raw_lua: raw_lua,
+            raw_lua,
         };
         if is_nil {
             Err(guard)
@@ -947,7 +947,7 @@ impl<'lua> Lua<'lua> {
         let guard = PushGuard {
             lua: self,
             size: 1,
-            raw_lua: raw_lua,
+            raw_lua,
         };
         LuaRead::lua_read(guard).ok().unwrap()
     }

@@ -1,6 +1,3 @@
-use ffi;
-use libc;
-
 use std::error::Error;
 use std::fmt;
 use std::io::Cursor;
@@ -136,9 +133,9 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
                 let raw_lua = lua.as_lua();
                 (code,
                  PushGuard {
-                     lua: lua,
+                     lua,
                      size: 1,
-                     raw_lua: raw_lua,
+                     raw_lua,
                  })
             };
 
@@ -279,7 +276,7 @@ impl<'lua, L> LuaFunction<L>
             let guard = PushGuard {
                 lua: &mut self.variable,
                 size: 1,
-                raw_lua: raw_lua,
+                raw_lua,
             };
 
             (pcall_return_value, guard)

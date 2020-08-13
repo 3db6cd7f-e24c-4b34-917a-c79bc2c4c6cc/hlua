@@ -1,4 +1,3 @@
-use ffi;
 use crate::any::{AnyLuaValue, AnyHashableLuaValue};
 
 use crate::Push;
@@ -45,9 +44,9 @@ fn push_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, 
 
     let raw_lua = lua.as_lua();
     Ok(PushGuard {
-        lua: lua,
+        lua,
         size: 1,
-        raw_lua: raw_lua,
+        raw_lua,
     })
 }
 
@@ -77,9 +76,9 @@ fn push_rec_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<
 
     let raw_lua = lua.as_lua();
     Ok(PushGuard {
-        lua: lua,
+        lua,
         size: 1,
-        raw_lua: raw_lua,
+        raw_lua,
     })
 }
 

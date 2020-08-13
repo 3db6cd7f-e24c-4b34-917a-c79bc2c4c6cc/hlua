@@ -64,7 +64,7 @@ macro_rules! tuple_impl {
                         }
 
                         let raw_lua = lua.as_lua();
-                        Ok(PushGuard { lua: lua, size: total, raw_lua: raw_lua })
+                        Ok(PushGuard { lua, size: total, raw_lua })
                     }
                 }
             }

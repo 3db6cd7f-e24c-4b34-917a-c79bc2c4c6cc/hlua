@@ -11,7 +11,7 @@ use std::{default, ptr};
 pub const MULTRET: c_int = -1;
 
 pub const LUAI_MAXSTACK: c_int = 1000000;  // or 15000 with 32b        // TODO:
-pub const LUAI_FIRSTPSEUDOIDX: c_int = (-LUAI_MAXSTACK - 1000);
+pub const LUAI_FIRSTPSEUDOIDX: c_int = -LUAI_MAXSTACK - 1000;
 pub const LUA_REGISTRYINDEX: c_int = LUAI_FIRSTPSEUDOIDX;
 
 pub const LUA_OK: c_int = 0;

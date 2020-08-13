@@ -4,9 +4,6 @@ use std::ops::{Deref, DerefMut};
 use std::mem;
 use std::ptr;
 
-use ffi;
-use libc;
-
 use crate::AsLua;
 use crate::AsMutLua;
 use crate::Push;
@@ -158,9 +155,9 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
 
     let raw_lua = lua.as_lua();
     PushGuard {
-        lua: lua,
+        lua,
         size: 1,
-        raw_lua: raw_lua,
+        raw_lua,
     }
 }
 
@@ -214,7 +211,7 @@ impl<'lua, T, L> LuaRead<L> for UserdataOnStack<T, L>
 
             Ok(UserdataOnStack {
                 variable: lua,
-                index: index,
+                index,
                 marker: PhantomData,
             })
         }

@@ -25,7 +25,7 @@ macro_rules! integer_impl(
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe { ffi::lua_pushinteger(lua.as_mut_lua().0, self as ffi::lua_Integer) };
                 let raw_lua = lua.as_lua();
-                Ok(PushGuard { lua: lua, size: 1, raw_lua: raw_lua })
+                Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }
         
@@ -60,7 +60,7 @@ macro_rules! unsigned_impl(
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe { ffi::lua_pushunsigned(lua.as_mut_lua().0, self as ffi::lua_Unsigned) };
                 let raw_lua = lua.as_lua();
-                Ok(PushGuard { lua: lua, size: 1, raw_lua: raw_lua })
+                Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }
         
@@ -95,7 +95,7 @@ macro_rules! numeric_impl(
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe { ffi::lua_pushnumber(lua.as_mut_lua().0, self as f64) };
                 let raw_lua = lua.as_lua();
-                Ok(PushGuard { lua: lua, size: 1, raw_lua: raw_lua })
+                Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }
         
@@ -133,9 +133,9 @@ impl<'lua, L> Push<L> for String
 
             let raw_lua = lua.as_lua();
             Ok(PushGuard {
-                lua: lua,
+                lua,
                 size: 1,
-                raw_lua: raw_lua,
+                raw_lua,
             })
         }
     }
@@ -180,9 +180,9 @@ impl<'lua, L> Push<L> for AnyLuaString
 
             let raw_lua = lua.as_lua();
             Ok(PushGuard {
-                lua: lua,
+                lua,
                 size: 1,
-                raw_lua: raw_lua,
+                raw_lua,
             })
         }
     }
@@ -220,9 +220,9 @@ impl<'lua, 's, L> Push<L> for &'s str
 
             let raw_lua = lua.as_lua();
             Ok(PushGuard {
-                lua: lua,
+                lua,
                 size: 1,
-                raw_lua: raw_lua,
+                raw_lua,
             })
         }
     }
@@ -273,9 +273,9 @@ impl<'lua, L> LuaRead<L> for StringInLua<L>
         };
 
         Ok(StringInLua {
-            lua: lua,
-            c_str_raw: c_str_raw,
-            size: size,
+            lua,
+            c_str_raw,
+            size,
         })
     }
 }
@@ -303,9 +303,9 @@ impl<'lua, L> Push<L> for bool
         unsafe { ffi::lua_pushboolean(lua.as_mut_lua().0, self as libc::c_int) };
         let raw_lua = lua.as_lua();
         Ok(PushGuard {
-            lua: lua,
+            lua,
             size: 1,
-            raw_lua: raw_lua,
+            raw_lua,
         })
     }
 }
@@ -335,9 +335,9 @@ impl<'lua, L> Push<L> for ()
         let raw_lua = lua.as_lua();
 
         Ok(PushGuard {
-            lua: lua,
+            lua,
             size: 0,
-            raw_lua: raw_lua,
+            raw_lua,
         })
     }
 }

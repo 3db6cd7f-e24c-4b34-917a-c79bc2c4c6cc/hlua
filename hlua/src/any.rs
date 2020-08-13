@@ -1,5 +1,3 @@
-use ffi;
-
 use crate::AsLua;
 use crate::AsMutLua;
 
@@ -68,9 +66,9 @@ impl<'lua, L> Push<L> for AnyLuaValue
                 let size = val.push_no_err(&mut lua as &mut dyn AsMutLua<'lua>).forget_internal();
 
                 Ok(PushGuard {
-                    lua: lua,
-                    size: size,
-                    raw_lua: raw_lua,
+                    lua,
+                    size,
+                    raw_lua,
                 })
             }
             AnyLuaValue::LuaNil => {
@@ -78,9 +76,9 @@ impl<'lua, L> Push<L> for AnyLuaValue
                     ffi::lua_pushnil(lua.as_mut_lua().0);
                 }
                 Ok(PushGuard {
-                    lua: lua,
+                    lua,
                     size: 1,
-                    raw_lua: raw_lua,
+                    raw_lua,
                 })
             } // Use ffi::lua_pushnil.
             AnyLuaValue::LuaOther => panic!("can't push a AnyLuaValue of type Other"),
@@ -177,9 +175,9 @@ impl<'lua, L> Push<L> for AnyHashableLuaValue
                 let size = val.push_no_err(&mut lua as &mut dyn AsMutLua<'lua>).forget_internal();
 
                 Ok(PushGuard {
-                    lua: lua,
-                    size: size,
-                    raw_lua: raw_lua,
+                    lua,
+                    size,
+                    raw_lua,
                 })
             }
             AnyHashableLuaValue::LuaNil => {
@@ -187,9 +185,9 @@ impl<'lua, L> Push<L> for AnyHashableLuaValue
                     ffi::lua_pushnil(lua.as_mut_lua().0);
                 }
                 Ok(PushGuard {
-                    lua: lua,
+                    lua,
                     size: 1,
-                    raw_lua: raw_lua,
+                    raw_lua,
                 })
             } // Use ffi::lua_pushnil.
             AnyHashableLuaValue::LuaOther => panic!("can't push a AnyHashableLuaValue of type Other"),

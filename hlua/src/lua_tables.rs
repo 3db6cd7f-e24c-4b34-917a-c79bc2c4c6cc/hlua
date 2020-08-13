@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use ffi;
 use crate::LuaContext;
 
 use crate::AsLua;
@@ -80,7 +79,7 @@ impl<'lua, L> LuaRead<L> for LuaTable<L>
         if unsafe { ffi::lua_istable(lua.as_mut_lua().0, index) } {
             Ok(LuaTable {
                 table: lua,
-                index: index,
+                index,
             })
         } else {
             Err(lua)
@@ -110,7 +109,7 @@ impl<'lua, L> LuaTable<L>
             LuaTableIterator {
                 table: self,
                 finished: false,
-                raw_lua: raw_lua,
+                raw_lua,
                 marker: PhantomData,
             }
         }
@@ -162,7 +161,7 @@ impl<'lua, L> LuaTable<L>
             let guard = PushGuard {
                 lua: me,
                 size: 1,
-                raw_lua: raw_lua,
+                raw_lua,
             };
 
             if ffi::lua_isnil(raw_lua.0, -1) {
@@ -190,7 +189,7 @@ impl<'lua, L> LuaTable<L>
             let guard = PushGuard {
                 lua: self,
                 size: 1,
-                raw_lua: raw_lua,
+                raw_lua,
             };
 
             if ffi::lua_isnil(raw_lua.0, -1) {
@@ -358,7 +357,7 @@ impl<'lua, L> LuaTable<L>
                 table: PushGuard {
                     lua: self.table,
                     size: 1,
-                    raw_lua: raw_lua,
+                    raw_lua,
                 },
                 index: -1,
             }
