@@ -203,36 +203,32 @@ macro_rules! impl_function_ext {
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe {
+                    let lua_raw = lua.as_mut_lua().0;
+
                     // pushing the function pointer as a userdata
-                    let lua_data = ffi::lua_newuserdata(lua.as_mut_lua().0,
+                    let lua_data = ffi::lua_newuserdata(lua_raw,
                                                         mem::size_of::<Z>() as libc::size_t);
                     let lua_data: *mut Z = lua_data as *mut Z;
                     ptr::write(lua_data, self.function);
 
-                    let lua_raw = lua.as_mut_lua();
-
                     // Creating a metatable.
-                    ffi::lua_newtable(lua.as_mut_lua().0);
+                    ffi::lua_newtable(lua_raw);
 
                     // Index "__gc" in the metatable calls the object's destructor.
-
-                    // TODO: Could use std::intrinsics::needs_drop to avoid that if not needed.
-                    // After some discussion on IRC, it would be acceptable to add a reexport in libcore
-                    // without going through the RFC process.
-                    {
+                    if mem::needs_drop::<Z>() {
                         match "__gc".push_to_lua(&mut lua) {
                             Ok(p) => p.forget(),
                             Err(_) => unreachable!(),
                         };
 
-                        ffi::lua_pushcfunction(lua.as_mut_lua().0, closure_destructor_wrapper::<Z>);
-                        ffi::lua_settable(lua.as_mut_lua().0, -3);
+                        ffi::lua_pushcfunction(lua_raw, closure_destructor_wrapper::<Z>);
+                        ffi::lua_settable(lua_raw, -3);
                     }
-                    ffi::lua_setmetatable(lua_raw.0, -2);
+                    ffi::lua_setmetatable(lua_raw, -2);
 
                     // pushing wrapper as a closure
                     let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(lua.as_mut_lua().0, wrapper, 1);
+                    ffi::lua_pushcclosure(lua_raw, wrapper, 1);
                     let raw_lua = lua.as_lua();
                     Ok(PushGuard { lua: lua, size: 1, raw_lua: raw_lua })
                 }
@@ -270,36 +266,32 @@ macro_rules! impl_function_ext {
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe {
+                    let lua_raw = lua.as_mut_lua().0;
                     // pushing the function pointer as a userdata
-                    let lua_data = ffi::lua_newuserdata(lua.as_mut_lua().0,
+                    let lua_data = ffi::lua_newuserdata(lua_raw,
                                                         mem::size_of::<Z>() as libc::size_t);
                     let lua_data: *mut Z = lua_data as *mut Z;
                     ptr::write(lua_data, self.function);
 
-                    let lua_raw = lua.as_mut_lua();
-
-                    // Creating a metatable.
-                    ffi::lua_newtable(lua.as_mut_lua().0);
-
                     // Index "__gc" in the metatable calls the object's destructor.
+                    if mem::needs_drop::<Z>() {
+                        // Creating a metatable.    
+                        ffi::lua_newtable(lua_raw);
 
-                    // TODO: Could use std::intrinsics::needs_drop to avoid that if not needed.
-                    // After some discussion on IRC, it would be acceptable to add a reexport in libcore
-                    // without going through the RFC process.
-                    {
                         match "__gc".push_to_lua(&mut lua) {
                             Ok(p) => p.forget_internal(),
                             Err(_) => unreachable!(),
                         };
 
-                        ffi::lua_pushcfunction(lua.as_mut_lua().0, closure_destructor_wrapper::<Z>);
-                        ffi::lua_settable(lua.as_mut_lua().0, -3);
+                        ffi::lua_pushcfunction(lua_raw, closure_destructor_wrapper::<Z>);
+                        ffi::lua_settable(lua_raw, -3);
+
+                        ffi::lua_setmetatable(lua_raw, -2);
                     }
-                    ffi::lua_setmetatable(lua_raw.0, -2);
 
                     // pushing wrapper as a closure
                     let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(lua.as_mut_lua().0, wrapper, 1);
+                    ffi::lua_pushcclosure(lua_raw, wrapper, 1);
                     let raw_lua = lua.as_lua();
                     Ok(PushGuard { lua: lua, size: 1, raw_lua: raw_lua })
                 }
