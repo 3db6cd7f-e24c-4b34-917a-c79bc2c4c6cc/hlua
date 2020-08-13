@@ -4,10 +4,10 @@ use crate::LuaContext;
 
 use crate::AsLua;
 use crate::AsMutLua;
+use crate::LuaRead;
 use crate::Push;
 use crate::PushGuard;
 use crate::PushOne;
-use crate::LuaRead;
 use crate::Void;
 
 /// Represents a table stored in the Lua context.
@@ -77,10 +77,7 @@ impl<'lua, L> LuaRead<L> for LuaTable<L>
     #[inline]
     fn lua_read_at_position(mut lua: L, index: i32) -> Result<LuaTable<L>, L> {
         if unsafe { ffi::lua_istable(lua.as_mut_lua().0, index) } {
-            Ok(LuaTable {
-                table: lua,
-                index,
-            })
+            Ok(LuaTable { table: lua, index })
         } else {
             Err(lua)
         }
@@ -228,10 +225,11 @@ impl<'lua, L> LuaTable<L>
     /// limited set of types. You are encouraged to use the `set` method if writing cannot fail.
     // TODO: doc
     #[inline]
-    pub fn checked_set<I, V, Ke, Ve>(&mut self,
-                                     index: I,
-                                     value: V)
-                                     -> Result<(), CheckedSetError<Ke, Ve>>
+    pub fn checked_set<I, V, Ke, Ve>(
+        &mut self,
+        index: I,
+        value: V,
+    ) -> Result<(), CheckedSetError<Ke, Ve>>
         where I: for<'r> PushOne<&'r mut LuaTable<L>, Err = Ke>,
               V: for<'r, 's> PushOne<&'r mut PushGuard<&'s mut LuaTable<L>>, Err = Ve>
     {
@@ -279,12 +277,12 @@ impl<'lua, L> LuaTable<L>
                     assert_eq!(pushed.size, 1);
                     pushed.forget()
                 }
-                Err(_) => panic!(),      // TODO:
+                Err(_) => panic!(), // TODO:
             };
 
             match Vec::<u8>::with_capacity(0).push_to_lua(&mut me) {
                 Ok(pushed) => pushed.forget(),
-                Err(_) => panic!(),      // TODO:
+                Err(_) => panic!(), // TODO:
             };
 
             ffi::lua_settable(me.as_mut_lua().0, me.offset(-2));
@@ -465,7 +463,7 @@ impl<'t, 'lua, L, K, V> Iterator for LuaTableIterator<'t, L, K, V>
 
             match (key, value) {
                 (Some(key), Some(value)) => Some(Some((key, value))),
-                _ => Some(None)
+                _ => Some(None),
             }
         }
     }
@@ -484,10 +482,10 @@ impl<'t, L, K, V> Drop for LuaTableIterator<'t, L, K, V> {
 
 #[cfg(test)]
 mod tests {
+    use crate::function0;
     use crate::Lua;
     use crate::LuaTable;
     use crate::PushGuard;
-    use crate::function0;
 
     #[test]
     fn iterable() {
@@ -518,8 +516,10 @@ mod tests {
 
         for _ in 0..10 {
             let table_content: Vec<Option<(u32, u32)>> = table.iter().collect();
-            assert_eq!(table_content,
-                    vec![Some((1, 9)), Some((2, 8)), Some((3, 7))]);
+            assert_eq!(
+                table_content,
+                vec![Some((1, 9)), Some((2, 8)), Some((3, 7))]
+            );
         }
     }
 

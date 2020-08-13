@@ -1,15 +1,15 @@
 use std::any::{Any, TypeId};
 use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
 use std::mem;
+use std::ops::{Deref, DerefMut};
 use std::ptr;
 
 use crate::AsLua;
 use crate::AsMutLua;
-use crate::Push;
-use crate::PushGuard;
 use crate::LuaContext;
 use crate::LuaRead;
+use crate::Push;
+use crate::PushGuard;
 
 use crate::InsideCallback;
 use crate::LuaTable;
@@ -160,9 +160,10 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
 
 ///
 #[inline]
-pub fn read_userdata<'t, 'c, T>(lua: &'c mut InsideCallback,
-                                index: i32)
-                                -> Result<&'t mut T, &'c mut InsideCallback>
+pub fn read_userdata<'t, 'c, T>(
+    lua: &'c mut InsideCallback,
+    index: i32,
+) -> Result<&'t mut T, &'c mut InsideCallback>
     where T: 'static + Any
 {
     unsafe {

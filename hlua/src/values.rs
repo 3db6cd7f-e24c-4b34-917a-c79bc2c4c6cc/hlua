@@ -1,10 +1,10 @@
 use std::mem;
+use std::ops::Deref;
 use std::slice;
 use std::str;
-use std::ops::Deref;
 
-use crate::AnyLuaValue;
 use crate::AnyLuaString;
+use crate::AnyLuaValue;
 use crate::AsLua;
 use crate::AsMutLua;
 use crate::LuaRead;
@@ -25,7 +25,7 @@ macro_rules! integer_impl(
                 Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }
-        
+
         impl<'lua, L> PushOne<L> for $t where L: AsMutLua<'lua> {
         }
 
@@ -60,7 +60,7 @@ macro_rules! unsigned_impl(
                 Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }
-        
+
         impl<'lua, L> PushOne<L> for $t where L: AsMutLua<'lua> {
         }
 
@@ -95,7 +95,7 @@ macro_rules! numeric_impl(
                 Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }
-        
+
         impl<'lua, L> PushOne<L> for $t where L: AsMutLua<'lua> {
         }
 
@@ -119,15 +119,17 @@ numeric_impl!(f64);
 impl<'lua, L> Push<L> for String
     where L: AsMutLua<'lua>
 {
-    type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
         unsafe {
             let raw_lua = lua.as_mut_lua();
-            ffi::lua_pushlstring(raw_lua.0,
-                                 self.as_bytes().as_ptr() as *const _,
-                                 self.as_bytes().len() as libc::size_t);
+            ffi::lua_pushlstring(
+                raw_lua.0,
+                self.as_bytes().as_ptr() as *const _,
+                self.as_bytes().len() as libc::size_t,
+            );
 
             Ok(PushGuard {
                 lua,
@@ -152,7 +154,7 @@ impl<'lua, L> LuaRead<L> for String
         }
 
         let size = unsafe { size.assume_init() };
-        
+
         let c_slice = unsafe { slice::from_raw_parts(c_str_raw as *const u8, size) };
         let maybe_string = String::from_utf8(c_slice.to_vec());
         match maybe_string {
@@ -165,16 +167,18 @@ impl<'lua, L> LuaRead<L> for String
 impl<'lua, L> Push<L> for AnyLuaString
     where L: AsMutLua<'lua>
 {
-    type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
         let AnyLuaString(v) = self;
         unsafe {
             let raw_lua = lua.as_mut_lua();
-            ffi::lua_pushlstring(raw_lua.0,
-                                 v[..].as_ptr() as *const _,
-                                 v[..].len() as libc::size_t);
+            ffi::lua_pushlstring(
+                raw_lua.0,
+                v[..].as_ptr() as *const _,
+                v[..].len() as libc::size_t,
+            );
 
             Ok(PushGuard {
                 lua,
@@ -206,15 +210,17 @@ impl<'lua, L> LuaRead<L> for AnyLuaString
 impl<'lua, 's, L> Push<L> for &'s str
     where L: AsMutLua<'lua>
 {
-    type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
         unsafe {
             let raw_lua = lua.as_mut_lua();
-            ffi::lua_pushlstring(raw_lua.0,
-                                 self.as_bytes().as_ptr() as *const _,
-                                 self.as_bytes().len() as libc::size_t);
+            ffi::lua_pushlstring(
+                raw_lua.0,
+                self.as_bytes().as_ptr() as *const _,
+                self.as_bytes().len() as libc::size_t,
+            );
 
             Ok(PushGuard {
                 lua,
@@ -285,7 +291,7 @@ impl<L> Deref for StringInLua<L> {
         let c_slice = unsafe { slice::from_raw_parts(self.c_str_raw as *const u8, self.size) };
         match str::from_utf8(c_slice) {
             Ok(s) => s,
-            Err(_) => unreachable!()        // Checked earlier
+            Err(_) => unreachable!(), // Checked earlier
         }
     }
 }
@@ -293,7 +299,7 @@ impl<L> Deref for StringInLua<L> {
 impl<'lua, L> Push<L> for bool
     where L: AsMutLua<'lua>
 {
-    type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -326,7 +332,7 @@ impl<'lua, L> LuaRead<L> for bool
 impl<'lua, L> Push<L> for ()
     where L: AsMutLua<'lua>
 {
-    type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
     #[inline]
     fn push_to_lua(self, lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -391,8 +397,8 @@ impl<'lua, T, L> LuaRead<L> for Option<T>
 
 #[cfg(test)]
 mod tests {
-    use crate::AnyLuaValue;
     use crate::AnyLuaString;
+    use crate::AnyLuaValue;
     use crate::Lua;
     use crate::StringInLua;
 
@@ -527,7 +533,7 @@ mod tests {
             let x: StringInLua<_> = lua.get("a").unwrap();
             assert_eq!(&*x, "aaa");
         }
-        
+
         lua.set("a", 18);
         {
             let x: StringInLua<_> = lua.get("a").unwrap();

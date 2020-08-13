@@ -8,9 +8,8 @@ macro_rules! implement_lua_push {
                 Ok($crate::push_userdata(self, lua, $cb))
             }
         }
-        
-        impl<'lua, L> $crate::PushOne<L> for $ty where L: $crate::AsMutLua<'lua> {
-        }
+
+        impl<'lua, L> $crate::PushOne<L> for $ty where L: $crate::AsMutLua<'lua> {}
     };
 }
 
@@ -42,7 +41,7 @@ macro_rules! implement_lua_read {
                 let res = Self::lua_read_at_position(deref_lua, index);
                 match res {
                     Ok(x) => Ok(x),
-                    _ => Err(lua)
+                    _ => Err(lua),
                 }
             }
         }
@@ -56,7 +55,7 @@ macro_rules! implement_lua_read {
                 let res = Self::lua_read_at_position(deref_lua, index);
                 match res {
                     Ok(x) => Ok(x),
-                    _ => Err(lua)
+                    _ => Err(lua),
                 }
             }
         }

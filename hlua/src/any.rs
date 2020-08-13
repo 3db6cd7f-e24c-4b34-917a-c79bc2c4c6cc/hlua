@@ -1,11 +1,11 @@
 use crate::AsLua;
 use crate::AsMutLua;
 
+use crate::LuaRead;
+use crate::LuaTable;
 use crate::Push;
 use crate::PushGuard;
 use crate::PushOne;
-use crate::LuaRead;
-use crate::LuaTable;
 use crate::Void;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -44,7 +44,7 @@ pub enum AnyLuaValue {
 impl<'lua, L> Push<L> for AnyLuaValue
     where L: AsMutLua<'lua>
 {
-    type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -63,13 +63,11 @@ impl<'lua, L> Push<L> for AnyLuaValue
 
                 // We also need to destroy and recreate the push guard, otherwise the type parameter
                 // doesn't match.
-                let size = val.push_no_err(&mut lua as &mut dyn AsMutLua<'lua>).forget_internal();
+                let size = val
+                    .push_no_err(&mut lua as &mut dyn AsMutLua<'lua>)
+                    .forget_internal();
 
-                Ok(PushGuard {
-                    lua,
-                    size,
-                    raw_lua,
-                })
+                Ok(PushGuard { lua, size, raw_lua })
             }
             AnyLuaValue::LuaNil => {
                 unsafe {
@@ -140,8 +138,13 @@ impl<'lua, L> LuaRead<L> for AnyLuaValue
 
             let table: Result<LuaTable<_>, _> = LuaRead::lua_read_at_position(lua, index);
             let _lua = match table {
-                Ok(mut v) => return Ok(AnyLuaValue::LuaArray(v.iter::<AnyLuaValue, AnyLuaValue>()
-                                                              .filter_map(|e| e).collect())),
+                Ok(mut v) => {
+                    return Ok(AnyLuaValue::LuaArray(
+                        v.iter::<AnyLuaValue, AnyLuaValue>()
+                            .filter_map(|e| e)
+                            .collect(),
+                    ))
+                }
                 Err(lua) => lua,
             };
 
@@ -153,7 +156,7 @@ impl<'lua, L> LuaRead<L> for AnyLuaValue
 impl<'lua, L> Push<L> for AnyHashableLuaValue
     where L: AsMutLua<'lua>
 {
-    type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -172,13 +175,11 @@ impl<'lua, L> Push<L> for AnyHashableLuaValue
 
                 // We also need to destroy and recreate the push guard, otherwise the type parameter
                 // doesn't match.
-                let size = val.push_no_err(&mut lua as &mut dyn AsMutLua<'lua>).forget_internal();
+                let size = val
+                    .push_no_err(&mut lua as &mut dyn AsMutLua<'lua>)
+                    .forget_internal();
 
-                Ok(PushGuard {
-                    lua,
-                    size,
-                    raw_lua,
-                })
+                Ok(PushGuard { lua, size, raw_lua })
             }
             AnyHashableLuaValue::LuaNil => {
                 unsafe {
@@ -258,10 +259,10 @@ impl<'lua, L> LuaRead<L> for AnyHashableLuaValue
 
 #[cfg(test)]
 mod tests {
-    use crate::Lua;
-    use crate::AnyLuaValue;
     use crate::AnyHashableLuaValue;
     use crate::AnyLuaString;
+    use crate::AnyLuaValue;
+    use crate::Lua;
 
     #[test]
     fn read_numbers() {

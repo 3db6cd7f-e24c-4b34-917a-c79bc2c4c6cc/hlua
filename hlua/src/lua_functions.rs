@@ -1,8 +1,8 @@
 use std::error::Error;
 use std::fmt;
 use std::io::Cursor;
-use std::io::Read;
 use std::io::Error as IoError;
+use std::io::Read;
 use std::mem;
 use std::ptr;
 
@@ -10,8 +10,8 @@ use crate::AsLua;
 use crate::AsMutLua;
 
 use crate::LuaContext;
-use crate::LuaRead;
 use crate::LuaError;
+use crate::LuaRead;
 use crate::Push;
 use crate::PushGuard;
 use crate::PushOne;
@@ -97,10 +97,11 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
                 triggered_error: None,
             };
 
-            extern "C" fn reader<R>(_: *mut ffi::lua_State,
-                                    data: *mut libc::c_void,
-                                    size: *mut libc::size_t)
-                                    -> *const libc::c_char
+            extern "C" fn reader<R>(
+                _: *mut ffi::lua_State,
+                data: *mut libc::c_void,
+                size: *mut libc::size_t,
+            ) -> *const libc::c_char
                 where R: Read
             {
                 unsafe {
@@ -126,17 +127,21 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
 
             let (load_return_value, pushed_value) = {
                 let raw_lua = lua.as_mut_lua();
-                let code = ffi::lua_load(raw_lua.0,
-                                         reader::<R>,
-                                         &mut read_data as *mut ReadData<_> as *mut libc::c_void,
-                                         b"chunk\0".as_ptr() as *const _,
-                                         ptr::null());
-                (code,
-                 PushGuard {
-                     lua,
-                     size: 1,
-                     raw_lua,
-                 })
+                let code = ffi::lua_load(
+                    raw_lua.0,
+                    reader::<R>,
+                    &mut read_data as *mut ReadData<_> as *mut libc::c_void,
+                    b"chunk\0".as_ptr() as *const _,
+                    ptr::null(),
+                );
+                (
+                    code,
+                    PushGuard {
+                        lua,
+                        size: 1,
+                        raw_lua,
+                    },
+                )
             };
 
             if read_data.triggered_error.is_some() {
@@ -271,7 +276,7 @@ impl<'lua, L> LuaFunction<L>
                 Ok(g) => g.forget_internal(),
                 Err((err, _)) => return Err(LuaFunctionCallError::PushError(err)),
             };
-            let pcall_return_value = ffi::lua_pcall(raw_lua.0, num_pushed, 1, 0);     // TODO: num ret values
+            let pcall_return_value = ffi::lua_pcall(raw_lua.0, num_pushed, 1, 0); // TODO: num ret values
             let guard = PushGuard {
                 lua: &mut self.variable,
                 size: 1,
@@ -421,7 +426,7 @@ impl<'lua, L> LuaRead<L> for LuaFunction<L>
 {
     #[inline]
     fn lua_read_at_position(mut lua: L, index: i32) -> Result<LuaFunction<L>, L> {
-        assert!(index == -1);   // FIXME:
+        assert!(index == -1); // FIXME:
         if unsafe { ffi::lua_isfunction(lua.as_mut_lua().0, -1) } {
             Ok(LuaFunction { variable: lua })
         } else {
@@ -439,8 +444,8 @@ mod tests {
     use crate::LuaTable;
     use crate::Void;
 
-    use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read};
     use std::error::Error;
+    use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read};
 
     #[test]
     fn basic() {
@@ -515,7 +520,7 @@ mod tests {
 
     #[test]
     fn execute_from_reader_errors_if_cant_read() {
-        struct Reader { };
+        struct Reader {};
 
         impl Read for Reader {
             fn read(&mut self, _: &mut [u8]) -> ::std::io::Result<usize> {
@@ -525,11 +530,11 @@ mod tests {
         }
 
         let mut lua = Lua::new();
-        let reader = Reader { };
+        let reader = Reader {};
         let res: Result<(), _> = lua.execute_from_reader(reader);
         match res {
             Ok(_) => panic!("Reading succeded"),
-            Err(LuaError::ReadError(e)) => { assert_eq!("oh no!", e.to_string()) },
+            Err(LuaError::ReadError(e)) => assert_eq!("oh no!", e.to_string()),
             Err(_) => panic!("Unexpected error happened"),
         }
     }

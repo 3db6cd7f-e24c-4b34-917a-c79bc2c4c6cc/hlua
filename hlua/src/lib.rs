@@ -108,24 +108,24 @@
 
 // Export the version of lua52_sys in use by this crate. This allows clients to perform low-level
 // Lua operations without worrying about semver.
+extern crate libc;
 #[doc(hidden)]
 pub extern crate lua52_sys as ffi;
-extern crate libc;
 
-use std::ffi::{CStr, CString};
-use std::io::Read;
-use std::io::Error as IoError;
 use std::borrow::Borrow;
-use std::marker::PhantomData;
-use std::error::Error;
-use std::fmt;
 use std::convert::From;
+use std::error::Error;
+use std::ffi::{CStr, CString};
+use std::fmt;
 use std::io;
+use std::io::Error as IoError;
+use std::io::Read;
+use std::marker::PhantomData;
 
 pub use any::{AnyHashableLuaValue, AnyLuaString, AnyLuaValue};
-pub use functions_write::{Function, InsideCallback};
 pub use functions_write::{function0, function1, function2, function3, function4, function5};
-pub use functions_write::{function6, function7, function8, function9, function10};
+pub use functions_write::{function10, function6, function7, function8, function9};
+pub use functions_write::{Function, InsideCallback};
 pub use lua_functions::LuaFunction;
 pub use lua_functions::LuaFunctionCallError;
 pub use lua_functions::{LuaCode, LuaCodeFromReader};
@@ -142,9 +142,9 @@ mod lua_functions;
 mod lua_tables;
 mod macros;
 mod rust_tables;
+mod tuples;
 mod userdata;
 mod values;
-mod tuples;
 
 /// Main object of the library.
 ///
@@ -183,11 +183,7 @@ impl<'lua, L> PushGuard<L>
     #[inline]
     pub unsafe fn new(mut lua: L, size: i32) -> Self {
         let raw_lua = lua.as_mut_lua();
-        PushGuard {
-            lua,
-            size,
-            raw_lua,
-        }
+        PushGuard { lua, size, raw_lua }
     }
 
     #[inline]
@@ -401,7 +397,7 @@ pub trait LuaRead<L>: Sized {
 
     /// Reads the data from Lua at a given position.
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L>;
-    
+
     /// Returns a value to be used when a successful read is impossible.
     fn lua_read_out_of_bounds(lua: L) -> Result<Self, L> {
         Err(lua)
@@ -502,11 +498,12 @@ impl<'lua> Lua<'lua> {
         }
 
         // this alloc function is required to create a lua state.
-        extern "C" fn alloc(_ud: *mut libc::c_void,
-                            ptr: *mut libc::c_void,
-                            _osize: libc::size_t,
-                            nsize: libc::size_t)
-                            -> *mut libc::c_void {
+        extern "C" fn alloc(
+            _ud: *mut libc::c_void,
+            ptr: *mut libc::c_void,
+            _osize: libc::size_t,
+            nsize: libc::size_t,
+        ) -> *mut libc::c_void {
             unsafe {
                 if nsize == 0 {
                     libc::free(ptr as *mut libc::c_void);
@@ -983,7 +980,7 @@ mod tests {
     fn open_base_opens_base_library() {
         let mut lua = Lua::new();
         match lua.execute::<()>("return assert(true)") {
-            Err(LuaError::ExecutionError(_)) => { },
+            Err(LuaError::ExecutionError(_)) => {}
             Err(_) => panic!("Wrong error"),
             Ok(_) => panic!("Unexpected success"),
         }

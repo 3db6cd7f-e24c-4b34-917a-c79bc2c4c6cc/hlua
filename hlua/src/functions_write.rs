@@ -8,8 +8,8 @@ use crate::PushGuard;
 use crate::PushOne;
 use crate::Void;
 
-use std::marker::PhantomData;
 use std::fmt::Display;
+use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
 
@@ -270,7 +270,7 @@ macro_rules! impl_function_ext {
 
                     // Index "__gc" in the metatable calls the object's destructor.
                     if mem::needs_drop::<Z>() {
-                        // Creating a metatable.    
+                        // Creating a metatable.
                         ffi::lua_newtable(raw_lua.0);
 
                         match "__gc".push_to_lua(&mut lua) {
@@ -351,12 +351,13 @@ impl<'a, T, E, P> Push<&'a mut InsideCallback> for Result<T, E>
     type Err = P;
 
     #[inline]
-    fn push_to_lua(self, lua: &'a mut InsideCallback) -> Result<PushGuard<&'a mut InsideCallback>, (P, &'a mut InsideCallback)> {
+    fn push_to_lua(
+        self,
+        lua: &'a mut InsideCallback,
+    ) -> Result<PushGuard<&'a mut InsideCallback>, (P, &'a mut InsideCallback)> {
         match self {
             Ok(val) => val.push_to_lua(lua),
-            Err(val) => {
-                Ok((AnyLuaValue::LuaNil, val.to_string()).push_no_err(lua))
-            }
+            Err(val) => Ok((AnyLuaValue::LuaNil, val.to_string()).push_no_err(lua)),
         }
     }
 }
@@ -379,11 +380,14 @@ extern "C" fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
     let data: &mut T = unsafe { &mut *(data_raw as *mut T) };
 
     // creating a temporary Lua context in order to pass it to push & read functions
-    let mut tmp_lua = InsideCallback { lua: LuaContext(lua) };
+    let mut tmp_lua = InsideCallback {
+        lua: LuaContext(lua),
+    };
 
     // trying to read the arguments
     let arguments_count = unsafe { ffi::lua_gettop(lua) } as i32;
-    let args = match LuaRead::lua_read_at_position(&mut tmp_lua, -arguments_count as libc::c_int) {      // TODO: what if the user has the wrong params?
+    let args = match LuaRead::lua_read_at_position(&mut tmp_lua, -arguments_count as libc::c_int) {
+        // TODO: what if the user has the wrong params?
         Err(_) => {
             let err_msg = "wrong parameter types for callback function";
             match err_msg.push_to_lua(&mut tmp_lua) {
@@ -403,18 +407,18 @@ extern "C" fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
     // pushing back the result of the function on the stack
     let nb = match ret_value.push_to_lua(&mut tmp_lua) {
         Ok(p) => p.forget_internal(),
-        Err(_) => panic!(),      // TODO: wrong
+        Err(_) => panic!(), // TODO: wrong
     };
     nb as libc::c_int
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Lua;
-    use crate::LuaError;
     use crate::function0;
     use crate::function1;
     use crate::function2;
+    use crate::Lua;
+    use crate::LuaError;
 
     use std::sync::Arc;
 
@@ -543,7 +547,7 @@ mod tests {
         static mut DID_DESTRUCTOR_RUN: bool = false;
 
         #[derive(Debug)]
-        struct Foo { };
+        struct Foo {};
         impl Drop for Foo {
             fn drop(&mut self) {
                 unsafe {
@@ -552,7 +556,7 @@ mod tests {
             }
         }
         {
-            let foo = Arc::new(Foo { });
+            let foo = Arc::new(Foo {});
 
             {
                 let mut lua = Lua::new();

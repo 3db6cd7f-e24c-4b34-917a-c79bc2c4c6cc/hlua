@@ -1,11 +1,11 @@
-use crate::any::{AnyLuaValue, AnyHashableLuaValue};
+use crate::any::{AnyHashableLuaValue, AnyLuaValue};
 
+use crate::AsMutLua;
+use crate::LuaRead;
 use crate::Push;
 use crate::PushGuard;
 use crate::PushOne;
-use crate::AsMutLua;
 use crate::TuplePushError;
-use crate::LuaRead;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
@@ -25,7 +25,7 @@ fn push_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, 
     for (elem, index) in iterator.zip(1..) {
         let size = match elem.push_to_lua(&mut lua) {
             Ok(pushed) => pushed.forget_internal(),
-            Err((_err, _lua)) => panic!(),     // TODO: wrong   return Err((err, lua)),      // FIXME: destroy the temporary table
+            Err((_err, _lua)) => panic!(), // TODO: wrong   return Err((err, lua)),      // FIXME: destroy the temporary table
         };
 
         match size {
@@ -67,7 +67,7 @@ fn push_rec_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<
     for elem in iterator {
         let size = match elem.push_to_lua(&mut lua) {
             Ok(pushed) => pushed.forget_internal(),
-            Err((_err, _lua)) => panic!(),     // TODO: wrong   return Err((err, lua)),      // FIXME: destroy the temporary table
+            Err((_err, _lua)) => panic!(), // TODO: wrong   return Err((err, lua)),      // FIXME: destroy the temporary table
         };
 
         match size {
@@ -110,7 +110,7 @@ impl<'lua, L> LuaRead<L> for Vec<AnyLuaValue>
         // keys, even if they're numeric
         // https://www.lua.org/manual/5.2/manual.html#pdf-next
         let mut dict: BTreeMap<i32, AnyLuaValue> = BTreeMap::new();
-        
+
         let mut me = lua;
         let raw_lua = me.as_mut_lua();
         unsafe { ffi::lua_pushnil(raw_lua.0) };
@@ -122,28 +122,28 @@ impl<'lua, L> LuaRead<L> for Vec<AnyLuaValue>
             }
 
             let key = {
-                let maybe_key: Option<i32> =
-                    LuaRead::lua_read_at_position(&mut me, -2).ok();
+                let maybe_key: Option<i32> = LuaRead::lua_read_at_position(&mut me, -2).ok();
                 match maybe_key {
                     None => {
                         // Cleaning up after ourselves
                         unsafe { ffi::lua_pop(raw_lua.0, 2) };
-                        return Err(me)
+                        return Err(me);
                     }
                     Some(k) => k,
                 }
             };
 
-            let value: AnyLuaValue =
-                LuaRead::lua_read_at_position(&mut me, -1).ok().unwrap();
+            let value: AnyLuaValue = LuaRead::lua_read_at_position(&mut me, -1).ok().unwrap();
 
             unsafe { ffi::lua_pop(raw_lua.0, 1) };
 
             dict.insert(key, value);
         }
 
-        let (maximum_key, minimum_key) =
-            (*dict.keys().max().unwrap_or(&1), *dict.keys().min().unwrap_or(&1));
+        let (maximum_key, minimum_key) = (
+            *dict.keys().max().unwrap_or(&1),
+            *dict.keys().min().unwrap_or(&1),
+        );
 
         if minimum_key != 1 {
             // Rust doesn't support sparse arrays or arrays with negative
@@ -151,8 +151,7 @@ impl<'lua, L> LuaRead<L> for Vec<AnyLuaValue>
             return Err(me);
         }
 
-        let mut result =
-            Vec::with_capacity(maximum_key as usize);
+        let mut result = Vec::with_capacity(maximum_key as usize);
 
         // We expect to start with first element of table and have this
         // be smaller that first key by one
@@ -162,7 +161,7 @@ impl<'lua, L> LuaRead<L> for Vec<AnyLuaValue>
         // and check that table represented non-sparse 1-indexed array
         for (k, v) in dict {
             if previous_key + 1 != k {
-                return Err(me)
+                return Err(me);
             } else {
                 // We just push, thus converting Lua 1-based indexing
                 // to Rust 0-based indexing
@@ -216,14 +215,13 @@ impl<'lua, L> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue>
                     None => {
                         // Cleaning up after ourselves
                         unsafe { ffi::lua_pop(raw_lua.0, 2) };
-                        return Err(me)
+                        return Err(me);
                     }
                     Some(k) => k,
                 }
             };
 
-            let value: AnyLuaValue =
-                LuaRead::lua_read_at_position(&mut me, -1).ok().unwrap();
+            let value: AnyLuaValue = LuaRead::lua_read_at_position(&mut me, -1).ok().unwrap();
 
             unsafe { ffi::lua_pop(raw_lua.0, 1) };
 
@@ -283,11 +281,11 @@ impl<'lua, L, K, E> PushOne<L> for HashSet<K>
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet, BTreeMap};
+    use crate::AnyHashableLuaValue;
+    use crate::AnyLuaValue;
     use crate::Lua;
     use crate::LuaTable;
-    use crate::AnyLuaValue;
-    use crate::AnyHashableLuaValue;
+    use std::collections::{BTreeMap, HashMap, HashSet};
 
     #[test]
     fn write() {
@@ -334,7 +332,8 @@ mod tests {
 
         let mut table: LuaTable<_> = lua.get("a").unwrap();
 
-        let values: HashSet<i32> = table.iter()
+        let values: HashSet<i32> = table
+            .iter()
             .filter_map(|e| e)
             .map(|(elem, set): (i32, bool)| {
                 assert!(set);
