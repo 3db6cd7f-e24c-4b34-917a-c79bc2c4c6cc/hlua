@@ -218,7 +218,7 @@ macro_rules! impl_function_ext {
                         };
 
                         ffi::lua_pushcfunction(raw_lua.0, closure_destructor_wrapper::<Z>);
-                        ffi::lua_settable(raw_lua.0, -3);
+                        ffi::lua_rawset(raw_lua.0, -3);
                     }
                     ffi::lua_setmetatable(raw_lua.0, -2);
 
@@ -279,7 +279,7 @@ macro_rules! impl_function_ext {
                         };
 
                         ffi::lua_pushcfunction(raw_lua.0, closure_destructor_wrapper::<Z>);
-                        ffi::lua_settable(raw_lua.0, -3);
+                        ffi::lua_rawset(raw_lua.0, -3);
 
                         ffi::lua_setmetatable(raw_lua.0, -2);
                     }

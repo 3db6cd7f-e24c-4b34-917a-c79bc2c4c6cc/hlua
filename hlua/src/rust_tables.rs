@@ -30,15 +30,7 @@ fn push_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, 
 
         match size {
             0 => continue,
-            1 => {
-                let index = index as u32;
-                match index.push_to_lua(&mut lua) {
-                    Ok(pushed) => pushed.forget_internal(),
-                    Err(_) => unreachable!(),
-                };
-                unsafe { ffi::lua_insert(raw_lua.0, -2) }
-                unsafe { ffi::lua_settable(raw_lua.0, -3) }
-            }
+            1 => unsafe { ffi::lua_rawseti(raw_lua.0, -2, index) },
             2 => unsafe { ffi::lua_settable(raw_lua.0, -3) },
             _ => unreachable!(),
         }
