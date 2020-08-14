@@ -57,9 +57,10 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
     let raw_lua = lua.as_mut_lua();
     unsafe {
         let typeid = TypeId::of::<T>();
+        let typeid_size = mem::size_of::<TypeId>();
 
         let lua_data = {
-            let tot_size = mem::size_of_val(&typeid) + mem::size_of_val(&data);
+            let tot_size = typeid_size + mem::size_of_val(&data);
             ffi::lua_newuserdata(raw_lua.0, tot_size as libc::size_t)
         };
 
@@ -67,15 +68,15 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
         debug_assert_eq!(lua_data as usize % mem::align_of_val(&data), 0);
         // Since the size of a `TypeId` should always be a usize, this assert should pass every
         // time as well.
-        debug_assert_eq!(mem::size_of_val(&typeid) % mem::align_of_val(&data), 0);
+        debug_assert_eq!(typeid_size % mem::align_of_val(&data), 0);
 
         // We write the `TypeId` first, and the data right next to it.
         ptr::write(lua_data as *mut TypeId, typeid);
-        let data_loc = (lua_data as *const u8).add(mem::size_of_val(&typeid));
+        let data_loc = (lua_data as *mut u8).add(typeid_size);
         ptr::write(data_loc as *mut _, data);
 
         // Ensure that our logic below is operating on the memory it is intended to.
-        debug_assert_eq!(mem::size_of_val(&typeid), mem::size_of::<u64>());
+        debug_assert_eq!(typeid_size, mem::size_of::<u64>());
 
         let type_id_bytes = mem::transmute::<_, [u8; 8]>(typeid);
         let type_id_u64 = mem::transmute::<_, u64>(typeid);
