@@ -14,13 +14,23 @@ use crate::PushGuard;
 use crate::InsideCallback;
 use crate::LuaTable;
 
-// Called when an object inside Lua is being dropped.
+struct RawUserdata<T> {
+    typeid: TypeId,
+    data: T,
+}
+
+impl<T: 'static> RawUserdata<T> {
+    #[inline(always)]
+    fn new(data: T) -> RawUserdata<T> {
+        RawUserdata { typeid: TypeId::of::<T>(), data }
+    }
+}
+
+// Called when an object inside Lua that requires Drop is being dropped.
 #[inline]
 extern "C" fn destructor_wrapper<T>(lua: *mut ffi::lua_State) -> libc::c_int {
     unsafe {
-        let obj = ffi::lua_touserdata(lua, -1);
-        ptr::drop_in_place(obj as *mut TypeId);
-        ptr::drop_in_place((obj as *mut u8).add(mem::size_of::<TypeId>()) as *mut T);
+        ptr::drop_in_place(ffi::lua_touserdata(lua, -1).cast::<RawUserdata<T>>());
         0
     }
 }
@@ -57,44 +67,24 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
     let raw_lua = lua.as_mut_lua();
     unsafe {
         let typeid = TypeId::of::<T>();
-        let typeid_size = mem::size_of::<TypeId>();
+        let typeid_ptr = (&typeid as *const TypeId).cast();
+        let typeid_size = std::mem::size_of::<TypeId>();
 
         let lua_data = {
-            let tot_size = typeid_size + mem::size_of_val(&data);
-            ffi::lua_newuserdata(raw_lua.0, tot_size as libc::size_t)
+            let size = mem::size_of::<RawUserdata<T>>();
+            ffi::lua_newuserdata(raw_lua.0, size as libc::size_t) as *mut RawUserdata<T>
         };
 
         // We check the alignment requirements.
-        debug_assert_eq!(lua_data as usize % mem::align_of_val(&data), 0);
-        // Since the size of a `TypeId` should always be a usize, this assert should pass every
-        // time as well.
-        debug_assert_eq!(typeid_size % mem::align_of_val(&data), 0);
+        debug_assert_eq!(lua_data as usize % mem::align_of::<RawUserdata<T>>(), 0);
 
-        // We write the `TypeId` first, and the data right next to it.
-        ptr::write(lua_data as *mut TypeId, typeid);
-        let data_loc = (lua_data as *mut u8).add(typeid_size);
-        ptr::write(data_loc as *mut _, data);
+        // We write the `RawUserdata` block.
+        ptr::write(lua_data, RawUserdata::new(data));
 
-        // Ensure that our logic below is operating on the memory it is intended to.
-        debug_assert_eq!(typeid_size, mem::size_of::<u64>());
+        // Get the metatable if one already exist
+        ffi::lua_pushlstring(raw_lua.0, typeid_ptr, typeid_size);
+        ffi::lua_rawget(raw_lua.0, ffi::LUA_REGISTRYINDEX);
 
-        let type_id_bytes = mem::transmute::<_, [u8; 8]>(typeid);
-        let type_id_u64 = mem::transmute::<_, u64>(typeid);
-
-        // Allocate a 10 byte slice.
-        // [0-7] TypeId with each byte with LSB set to avoid \0.
-        // [8]   Checksum of all bytes to help avoid potential collisions.
-        // [9]   Terminating \0.
-        let mut type_key = [0u8; 10];
-
-        let type_id_u64 = type_id_u64 | 0x01_01_01_01_01_01_01_01;
-        std::ptr::write(type_key.as_mut_ptr() as _, type_id_u64);
-        type_key[8] = type_id_bytes.iter().copied().fold(0, u8::wrapping_add);
-
-        // A pointer to the data above that we'll pass to Lua.
-        let type_key_ptr = type_key.as_ptr() as _;
-
-        ffi::lua_getfield(raw_lua.0, ffi::LUA_REGISTRYINDEX, type_key_ptr);
         //| -2 userdata (data: T)
         //| -1 nil | table (metatable)
         if ffi::lua_isnil(raw_lua.0, -1) {
@@ -108,11 +98,16 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
                 ffi::lua_createtable(raw_lua.0, 0, mem::needs_drop::<T>() as i32);
                 //| -2 userdata (data: T)
                 //| -1 table (metatable)
-                ffi::lua_pushvalue(raw_lua.0, -1);
+                ffi::lua_pushlstring(raw_lua.0, typeid_ptr, typeid_size);
                 //| -3 userdata (data: T)
                 //| -2 table (metatable)
+                //| -1 string (typeid)
+                ffi::lua_pushvalue(raw_lua.0, -2);
+                //| -4 userdata (data: T)
+                //| -3 table (metatable)
+                //| -2 string (typeid)
                 //| -1 table (metatable)
-                ffi::lua_setfield(raw_lua.0, ffi::LUA_REGISTRYINDEX, type_key_ptr);
+                ffi::lua_rawset(raw_lua.0, ffi::LUA_REGISTRYINDEX);
                 //| -2 userdata (data: T)
                 //| -1 table (metatable)
             }
@@ -149,7 +144,7 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
         //| -1 table (metatable)
 
         ffi::lua_setmetatable(raw_lua.0, -2);
-        //| -2 userdata (data: T)
+        //| -1 userdata (data: T)
     }
 
     PushGuard {
@@ -168,18 +163,11 @@ pub fn read_userdata<'t, 'c, T>(
     where T: 'static + Any
 {
     unsafe {
-        let data_ptr = ffi::lua_touserdata(lua.as_lua().0, index);
-        if data_ptr.is_null() {
-            return Err(lua);
+        let ptr = ffi::lua_touserdata(lua.as_lua().0, index);
+        match ptr.cast::<RawUserdata<T>>().as_mut() {
+            Some(ud) if ud.typeid == TypeId::of::<T>() => Ok(&mut ud.data),
+            _ => Err(lua),
         }
-
-        let actual_typeid = data_ptr as *const TypeId;
-        if *actual_typeid != TypeId::of::<T>() {
-            return Err(lua);
-        }
-
-        let data = (data_ptr as *const u8).add(mem::size_of::<TypeId>());
-        Ok(&mut *(data as *mut T))
     }
 }
 
@@ -198,21 +186,15 @@ impl<'lua, T, L> LuaRead<L> for UserdataOnStack<T, L>
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<UserdataOnStack<T, L>, L> {
         unsafe {
-            let data_ptr = ffi::lua_touserdata(lua.as_lua().0, index);
-            if data_ptr.is_null() {
-                return Err(lua);
+            let ptr = ffi::lua_touserdata(lua.as_lua().0, index);
+            match ptr.cast::<RawUserdata<T>>().as_mut() {
+                Some(ud) if ud.typeid == TypeId::of::<T>() => Ok(UserdataOnStack {
+                    variable: lua,
+                    index,
+                    marker: PhantomData,
+                }),
+                _ => Err(lua),
             }
-
-            let actual_typeid = data_ptr as *const TypeId;
-            if *actual_typeid != TypeId::of::<T>() {
-                return Err(lua);
-            }
-
-            Ok(UserdataOnStack {
-                variable: lua,
-                index,
-                marker: PhantomData,
-            })
         }
     }
 }
@@ -246,9 +228,8 @@ impl<'lua, T, L> Deref for UserdataOnStack<T, L>
     #[inline]
     fn deref(&self) -> &T {
         unsafe {
-            let base = ffi::lua_touserdata(self.variable.as_lua().0, self.index);
-            let data = (base as *const u8).add(mem::size_of::<TypeId>());
-            &*(data as *const T)
+            let ptr = ffi::lua_touserdata(self.variable.as_lua().0, self.index);
+            &(*ptr.cast::<RawUserdata<T>>()).data
         }
     }
 }
@@ -260,9 +241,8 @@ impl<'lua, T, L> DerefMut for UserdataOnStack<T, L>
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
         unsafe {
-            let base = ffi::lua_touserdata(self.variable.as_mut_lua().0, self.index);
-            let data = (base as *const u8).add(mem::size_of::<TypeId>());
-            &mut *(data as *mut T)
+            let ptr = ffi::lua_touserdata(self.variable.as_lua().0, self.index);
+            &mut (*ptr.cast::<RawUserdata<T>>()).data
         }
     }
 }
