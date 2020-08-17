@@ -1,13 +1,10 @@
-extern crate pkg_config;
 extern crate cc;
+extern crate pkg_config;
 
 use std::env;
 
 fn main() {
-    match pkg_config::find_library("lua5.2") {
-        Ok(_) => return,
-        Err(..) => {}
-    };
+    if pkg_config::find_library("lua5.2").is_ok() { return }
 
     let mut build = cc::Build::new();
 
