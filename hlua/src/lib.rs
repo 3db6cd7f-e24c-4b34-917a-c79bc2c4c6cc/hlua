@@ -124,7 +124,7 @@ use std::fmt;
 use std::io;
 use std::io::Error as IoError;
 use std::io::Read;
-use std::marker::PhantomData;
+use std::{ptr::NonNull, marker::PhantomData};
 
 pub use any::{AnyHashableLuaValue, AnyLuaString, AnyLuaValue};
 pub use functions_write::{function0, function1, function2, function3, function4, function5};
@@ -230,7 +230,7 @@ impl<'lua, L> PushGuard<L>
             let mut res = mem::MaybeUninit::uninit();
             ptr::copy_nonoverlapping(&self.lua, res.as_mut_ptr(), 1);
             if self.size != 0 {
-                ffi::lua_pop(self.lua.as_mut_lua().0, self.size);
+                ffi::lua_pop(self.lua.as_mut_lua().as_ptr(), self.size);
             }
             res.assume_init()
         };
@@ -255,26 +255,13 @@ pub unsafe trait AsMutLua<'lua>: AsLua<'lua> {
     fn as_mut_lua(&mut self) -> LuaContext;
 }
 
-/// Opaque type that contains the raw Lua context.
-// TODO: probably no longer necessary
-#[derive(Copy, Clone, Debug)]
-pub struct LuaContext(*mut ffi::lua_State);
-
-impl LuaContext {
-    /// Return a pointer to the inner `lua_State` for this context. This is an escape hatch that
-    /// lets the caller perform arbitrary operations against the FFI directly.
-    ///
-    /// Be careful: performing operations on this state might invalidate assumptions made in
-    /// higher-level APIs. For example, pushing a value onto the Lua stack will cause `PushGuard`s
-    /// in Rust code to be out of sync with the Lua stack.
-    #[doc(hidden)]
-    #[inline]
-    pub fn state_ptr(&self) -> *mut ffi::lua_State {
-        self.0
-    }
-}
-
-unsafe impl Send for LuaContext {}
+/// A pointer to the inner `lua_State` for this context. This is an escape hatch that
+/// lets the caller perform arbitrary operations against the FFI directly.
+///
+/// Be careful: performing operations on this state might invalidate assumptions made in
+/// higher-level APIs. For example, pushing a value onto the Lua stack will cause `PushGuard`s
+/// in Rust code to be out of sync with the Lua stack.
+type LuaContext = NonNull<ffi::lua_State>;
 
 unsafe impl<'a, 'lua> AsLua<'lua> for Lua<'lua> {
     #[inline]
@@ -496,10 +483,8 @@ impl<'lua> Lua<'lua> {
     /// (which indicates lack of memory).
     #[inline]
     pub fn new() -> Lua<'lua> {
-        let lua = unsafe { ffi::lua_newstate(alloc, std::ptr::null_mut()) };
-        if lua.is_null() {
-            panic!("lua_newstate failed");
-        }
+        let lua = NonNull::new(unsafe { ffi::lua_newstate(alloc, std::ptr::null_mut()) });
+        let lua = lua.expect("lua_newstate failed");
 
         // this alloc function is required to create a lua state.
         extern "C" fn alloc(
@@ -526,10 +511,10 @@ impl<'lua> Lua<'lua> {
             panic!("PANIC: unprotected error in call to Lua API ({})\n", err);
         }
 
-        unsafe { ffi::lua_atpanic(lua, panic) };
+        unsafe { ffi::lua_atpanic(lua.as_ptr(), panic) };
 
         Lua {
-            lua: LuaContext(lua),
+            lua,
             must_be_closed: true,
             marker: PhantomData,
         }
@@ -542,7 +527,7 @@ impl<'lua> Lua<'lua> {
     #[inline]
     pub unsafe fn from_existing_state<T>(lua: *mut T, close_at_the_end: bool) -> Lua<'lua> {
         Lua {
-            lua: std::mem::transmute(lua),
+            lua: NonNull::new_unchecked(lua as _),
             must_be_closed: close_at_the_end,
             marker: PhantomData,
         }
@@ -564,7 +549,7 @@ impl<'lua> Lua<'lua> {
     /// ```
     #[inline]
     pub fn openlibs(&mut self) {
-        unsafe { ffi::luaL_openlibs(self.lua.0) }
+        unsafe { ffi::luaL_openlibs(self.lua.as_ptr()) }
     }
 
     /// Opens base library.
@@ -572,7 +557,7 @@ impl<'lua> Lua<'lua> {
     /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_base
     #[inline]
     pub fn open_base(&mut self) {
-        unsafe { ffi::luaopen_base(self.lua.0) }
+        unsafe { ffi::luaopen_base(self.lua.as_ptr()) }
     }
 
     /// Opens bit32 library.
@@ -581,7 +566,7 @@ impl<'lua> Lua<'lua> {
     #[inline]
     #[cfg(feature = "lua52")]
     pub fn open_bit32(&mut self) {
-        unsafe { ffi::luaopen_bit32(self.lua.0) }
+        unsafe { ffi::luaopen_bit32(self.lua.as_ptr()) }
     }
 
     /// Opens coroutine library.
@@ -589,7 +574,7 @@ impl<'lua> Lua<'lua> {
     /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_coroutine
     #[inline]
     pub fn open_coroutine(&mut self) {
-        unsafe { ffi::luaopen_coroutine(self.lua.0) }
+        unsafe { ffi::luaopen_coroutine(self.lua.as_ptr()) }
     }
 
     /// Opens debug library.
@@ -597,7 +582,7 @@ impl<'lua> Lua<'lua> {
     /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_debug
     #[inline]
     pub fn open_debug(&mut self) {
-        unsafe { ffi::luaopen_debug(self.lua.0) }
+        unsafe { ffi::luaopen_debug(self.lua.as_ptr()) }
     }
 
     /// Opens io library.
@@ -605,7 +590,7 @@ impl<'lua> Lua<'lua> {
     /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_io
     #[inline]
     pub fn open_io(&mut self) {
-        unsafe { ffi::luaopen_io(self.lua.0) }
+        unsafe { ffi::luaopen_io(self.lua.as_ptr()) }
     }
 
     /// Opens math library.
@@ -613,7 +598,7 @@ impl<'lua> Lua<'lua> {
     /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_math
     #[inline]
     pub fn open_math(&mut self) {
-        unsafe { ffi::luaopen_math(self.lua.0) }
+        unsafe { ffi::luaopen_math(self.lua.as_ptr()) }
     }
 
     /// Opens os library.
@@ -621,7 +606,7 @@ impl<'lua> Lua<'lua> {
     /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_os
     #[inline]
     pub fn open_os(&mut self) {
-        unsafe { ffi::luaopen_os(self.lua.0) }
+        unsafe { ffi::luaopen_os(self.lua.as_ptr()) }
     }
 
     /// Opens package library.
@@ -629,7 +614,7 @@ impl<'lua> Lua<'lua> {
     /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_package
     #[inline]
     pub fn open_package(&mut self) {
-        unsafe { ffi::luaopen_package(self.lua.0) }
+        unsafe { ffi::luaopen_package(self.lua.as_ptr()) }
     }
 
     /// Opens string library.
@@ -637,7 +622,7 @@ impl<'lua> Lua<'lua> {
     /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_string
     #[inline]
     pub fn open_string(&mut self) {
-        unsafe { ffi::luaopen_string(self.lua.0) }
+        unsafe { ffi::luaopen_string(self.lua.as_ptr()) }
     }
 
     /// Opens table library.
@@ -645,7 +630,7 @@ impl<'lua> Lua<'lua> {
     /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_table
     #[inline]
     pub fn open_table(&mut self) {
-        unsafe { ffi::luaopen_table(self.lua.0) }
+        unsafe { ffi::luaopen_table(self.lua.as_ptr()) }
     }
 
     /// Opens utf8 library.
@@ -654,7 +639,7 @@ impl<'lua> Lua<'lua> {
     #[inline]
     #[cfg(feature = "lua54")]
     pub fn open_utf8(&mut self) {
-        unsafe { ffi::luaopen_utf8(self.lua.0) }
+        unsafe { ffi::luaopen_utf8(self.lua.as_ptr()) }
     }
 
     /// Executes some Lua code in the context.
@@ -754,9 +739,9 @@ impl<'lua> Lua<'lua> {
     {
         let index = CString::new(index.borrow()).unwrap();
         unsafe {
-            ffi::lua_getglobal(self.lua.0, index.as_ptr());
+            ffi::lua_getglobal(self.lua.as_ptr(), index.as_ptr());
         }
-        if unsafe { ffi::lua_isnil(self.as_lua().0, -1) } {
+        if unsafe { ffi::lua_isnil(self.as_lua().as_ptr(), -1) } {
             let raw_lua = self.as_lua();
             let _guard = PushGuard {
                 lua: self,
@@ -782,9 +767,9 @@ impl<'lua> Lua<'lua> {
     {
         let index = CString::new(index.borrow()).unwrap();
         unsafe {
-            ffi::lua_getglobal(self.lua.0, index.as_ptr());
+            ffi::lua_getglobal(self.lua.as_ptr(), index.as_ptr());
         }
-        let is_nil = unsafe { ffi::lua_isnil(self.as_lua().0, -1) };
+        let is_nil = unsafe { ffi::lua_isnil(self.as_lua().as_ptr(), -1) };
         let raw_lua = self.as_lua();
         let guard = PushGuard {
             lua: self,
@@ -839,7 +824,7 @@ impl<'lua> Lua<'lua> {
         unsafe {
             // TODO: can be simplified
             let mut me = self;
-            ffi::lua_pushglobaltable(me.lua.0);
+            ffi::lua_pushglobaltable(me.lua.as_ptr());
             match index.borrow().push_to_lua(&mut me) {
                 Ok(pushed) => {
                     debug_assert_eq!(pushed.size, 1);
@@ -853,12 +838,12 @@ impl<'lua> Lua<'lua> {
                     pushed.forget()
                 }
                 Err((err, lua)) => {
-                    ffi::lua_pop(lua.lua.0, 2);
+                    ffi::lua_pop(lua.lua.as_ptr(), 2);
                     return Err(err);
                 }
             };
-            ffi::lua_settable(me.lua.0, -3);
-            ffi::lua_pop(me.lua.0, 1);
+            ffi::lua_settable(me.lua.as_ptr(), -3);
+            ffi::lua_pop(me.lua.as_ptr(), 1);
             Ok(())
         }
     }
@@ -899,14 +884,14 @@ impl<'lua> Lua<'lua> {
     {
         unsafe {
             let mut me = self;
-            ffi::lua_pushglobaltable(me.lua.0);
+            ffi::lua_pushglobaltable(me.lua.as_ptr());
             match index.borrow().push_to_lua(&mut me) {
                 Ok(pushed) => pushed.forget(),
                 Err(_) => unreachable!(),
             };
-            ffi::lua_newtable(me.lua.0);
-            ffi::lua_settable(me.lua.0, -3);
-            ffi::lua_pop(me.lua.0, 1);
+            ffi::lua_newtable(me.lua.as_ptr());
+            ffi::lua_settable(me.lua.as_ptr(), -3);
+            ffi::lua_pop(me.lua.as_ptr(), 1);
 
             // TODO: cleaner implementation
             me.get(index).unwrap()
@@ -953,7 +938,7 @@ impl<'lua> Lua<'lua> {
     #[inline]
     pub fn globals_table<'a>(&'a mut self) -> LuaTable<PushGuard<&'a mut Lua<'lua>>> {
         unsafe {
-            ffi::lua_pushglobaltable(self.lua.0);
+            ffi::lua_pushglobaltable(self.lua.as_ptr());
         }
         let raw_lua = self.as_lua();
         let guard = PushGuard {
@@ -969,7 +954,7 @@ impl<'lua> Drop for Lua<'lua> {
     #[inline]
     fn drop(&mut self) {
         if self.must_be_closed {
-            unsafe { ffi::lua_close(self.lua.0) }
+            unsafe { ffi::lua_close(self.lua.as_ptr()) }
         }
     }
 }
@@ -979,7 +964,7 @@ impl<L> Drop for PushGuard<L> {
     fn drop(&mut self) {
         if self.size != 0 {
             unsafe {
-                ffi::lua_pop(self.raw_lua.0, self.size);
+                ffi::lua_pop(self.raw_lua.as_ptr(), self.size);
             }
         }
     }

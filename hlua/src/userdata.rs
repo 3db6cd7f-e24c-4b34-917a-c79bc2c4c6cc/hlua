@@ -72,7 +72,7 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
 
         let lua_data = {
             let size = mem::size_of::<RawUserdata<T>>();
-            ffi::lua_newuserdata(raw_lua.0, size as libc::size_t) as *mut RawUserdata<T>
+            ffi::lua_newuserdata(raw_lua.as_ptr(), size as libc::size_t) as *mut RawUserdata<T>
         };
 
         // We check the alignment requirements.
@@ -82,32 +82,32 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
         ptr::write(lua_data, RawUserdata::new(data));
 
         // Get the metatable if one already exist
-        ffi::lua_pushlstring(raw_lua.0, typeid_ptr, typeid_size);
-        ffi::lua_rawget(raw_lua.0, ffi::LUA_REGISTRYINDEX);
+        ffi::lua_pushlstring(raw_lua.as_ptr(), typeid_ptr, typeid_size);
+        ffi::lua_rawget(raw_lua.as_ptr(), ffi::LUA_REGISTRYINDEX);
 
         //| -2 userdata (data: T)
         //| -1 nil | table (metatable)
-        if ffi::lua_isnil(raw_lua.0, -1) {
+        if ffi::lua_isnil(raw_lua.as_ptr(), -1) {
             //| -2 userdata (data: T)
             //| -1 nil
 
             // Creating and registering the type T's metatable.
             {
-                ffi::lua_pop(raw_lua.0, 1);
+                ffi::lua_pop(raw_lua.as_ptr(), 1);
                 //| -1 userdata (data: T)
-                ffi::lua_createtable(raw_lua.0, 0, mem::needs_drop::<T>() as i32);
+                ffi::lua_createtable(raw_lua.as_ptr(), 0, mem::needs_drop::<T>() as i32);
                 //| -2 userdata (data: T)
                 //| -1 table (metatable)
-                ffi::lua_pushlstring(raw_lua.0, typeid_ptr, typeid_size);
+                ffi::lua_pushlstring(raw_lua.as_ptr(), typeid_ptr, typeid_size);
                 //| -3 userdata (data: T)
                 //| -2 table (metatable)
                 //| -1 string (typeid)
-                ffi::lua_pushvalue(raw_lua.0, -2);
+                ffi::lua_pushvalue(raw_lua.as_ptr(), -2);
                 //| -4 userdata (data: T)
                 //| -3 table (metatable)
                 //| -2 string (typeid)
                 //| -1 table (metatable)
-                ffi::lua_rawset(raw_lua.0, ffi::LUA_REGISTRYINDEX);
+                ffi::lua_rawset(raw_lua.as_ptr(), ffi::LUA_REGISTRYINDEX);
                 //| -2 userdata (data: T)
                 //| -1 table (metatable)
             }
@@ -119,12 +119,12 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
                 //| -3 userdata (data: T)
                 //| -2 table (metatable)
                 //| -1 string ("__gc")
-                ffi::lua_pushcfunction(raw_lua.0, destructor_wrapper::<T>);
+                ffi::lua_pushcfunction(raw_lua.as_ptr(), destructor_wrapper::<T>);
                 //| -4 userdata (data: T)
                 //| -3 table (metatable)
                 //| -2 string ("__gc")
                 //| -1 cfunction (destructor_wrapper::<T>)
-                ffi::lua_rawset(raw_lua.0, -3);
+                ffi::lua_rawset(raw_lua.as_ptr(), -3);
                 //| -2 userdata (data: T)
                 //| -1 table (metatable)
             }
@@ -143,7 +143,7 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
         //| -2 userdata (data: T)
         //| -1 table (metatable)
 
-        ffi::lua_setmetatable(raw_lua.0, -2);
+        ffi::lua_setmetatable(raw_lua.as_ptr(), -2);
         //| -1 userdata (data: T)
     }
 
@@ -163,7 +163,7 @@ pub fn read_userdata<'t, 'c, T>(
     where T: 'static + Any
 {
     unsafe {
-        let ptr = ffi::lua_touserdata(lua.as_lua().0, index);
+        let ptr = ffi::lua_touserdata(lua.as_lua().as_ptr(), index);
         match ptr.cast::<RawUserdata<T>>().as_mut() {
             Some(ud) if ud.typeid == TypeId::of::<T>() => Ok(&mut ud.data),
             _ => Err(lua),
@@ -186,7 +186,7 @@ impl<'lua, T, L> LuaRead<L> for UserdataOnStack<T, L>
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<UserdataOnStack<T, L>, L> {
         unsafe {
-            let ptr = ffi::lua_touserdata(lua.as_lua().0, index);
+            let ptr = ffi::lua_touserdata(lua.as_lua().as_ptr(), index);
             match ptr.cast::<RawUserdata<T>>().as_mut() {
                 Some(ud) if ud.typeid == TypeId::of::<T>() => Ok(UserdataOnStack {
                     variable: lua,
@@ -228,7 +228,7 @@ impl<'lua, T, L> Deref for UserdataOnStack<T, L>
     #[inline]
     fn deref(&self) -> &T {
         unsafe {
-            let ptr = ffi::lua_touserdata(self.variable.as_lua().0, self.index);
+            let ptr = ffi::lua_touserdata(self.variable.as_lua().as_ptr(), self.index);
             &(*ptr.cast::<RawUserdata<T>>()).data
         }
     }
@@ -241,7 +241,7 @@ impl<'lua, T, L> DerefMut for UserdataOnStack<T, L>
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
         unsafe {
-            let ptr = ffi::lua_touserdata(self.variable.as_lua().0, self.index);
+            let ptr = ffi::lua_touserdata(self.variable.as_lua().as_ptr(), self.index);
             &mut (*ptr.cast::<RawUserdata<T>>()).data
         }
     }

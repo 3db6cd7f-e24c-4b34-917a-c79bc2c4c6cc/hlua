@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
+use ptr::NonNull;
 
 macro_rules! impl_function {
     ($name:ident, $($p:ident),*) => (
@@ -202,13 +203,13 @@ macro_rules! impl_function_ext {
                 unsafe {
                     let raw_lua = lua.as_mut_lua();
                     // pushing the function pointer as a userdata
-                    let lua_data = ffi::lua_newuserdata(raw_lua.0,
+                    let lua_data = ffi::lua_newuserdata(raw_lua.as_ptr(),
                                                         mem::size_of::<Z>() as libc::size_t);
                     let lua_data: *mut Z = lua_data as *mut Z;
                     ptr::write(lua_data, self.function);
 
                     // Creating a metatable.
-                    ffi::lua_newtable(raw_lua.0);
+                    ffi::lua_newtable(raw_lua.as_ptr());
 
                     // Index "__gc" in the metatable calls the object's destructor.
                     if mem::needs_drop::<Z>() {
@@ -217,14 +218,14 @@ macro_rules! impl_function_ext {
                             Err(_) => unreachable!(),
                         };
 
-                        ffi::lua_pushcfunction(raw_lua.0, closure_destructor_wrapper::<Z>);
-                        ffi::lua_rawset(raw_lua.0, -3);
+                        ffi::lua_pushcfunction(raw_lua.as_ptr(), closure_destructor_wrapper::<Z>);
+                        ffi::lua_rawset(raw_lua.as_ptr(), -3);
                     }
-                    ffi::lua_setmetatable(raw_lua.0, -2);
+                    ffi::lua_setmetatable(raw_lua.as_ptr(), -2);
 
                     // pushing wrapper as a closure
                     let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(raw_lua.0, wrapper, 1);
+                    ffi::lua_pushcclosure(raw_lua.as_ptr(), wrapper, 1);
                     Ok(PushGuard { lua, size: 1, raw_lua })
                 }
             }
@@ -263,7 +264,7 @@ macro_rules! impl_function_ext {
                 unsafe {
                     let raw_lua = lua.as_mut_lua();
                     // pushing the function pointer as a userdata
-                    let lua_data = ffi::lua_newuserdata(raw_lua.0,
+                    let lua_data = ffi::lua_newuserdata(raw_lua.as_ptr(),
                                                         mem::size_of::<Z>() as libc::size_t);
                     let lua_data: *mut Z = lua_data as *mut Z;
                     ptr::write(lua_data, self.function);
@@ -271,22 +272,22 @@ macro_rules! impl_function_ext {
                     // Index "__gc" in the metatable calls the object's destructor.
                     if mem::needs_drop::<Z>() {
                         // Creating a metatable.
-                        ffi::lua_newtable(raw_lua.0);
+                        ffi::lua_newtable(raw_lua.as_ptr());
 
                         match "__gc".push_to_lua(&mut lua) {
                             Ok(p) => p.forget_internal(),
                             Err(_) => unreachable!(),
                         };
 
-                        ffi::lua_pushcfunction(raw_lua.0, closure_destructor_wrapper::<Z>);
-                        ffi::lua_rawset(raw_lua.0, -3);
+                        ffi::lua_pushcfunction(raw_lua.as_ptr(), closure_destructor_wrapper::<Z>);
+                        ffi::lua_rawset(raw_lua.as_ptr(), -3);
 
-                        ffi::lua_setmetatable(raw_lua.0, -2);
+                        ffi::lua_setmetatable(raw_lua.as_ptr(), -2);
                     }
 
                     // pushing wrapper as a closure
                     let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(raw_lua.0, wrapper, 1);
+                    ffi::lua_pushcclosure(raw_lua.as_ptr(), wrapper, 1);
                     Ok(PushGuard { lua, size: 1, raw_lua })
                 }
             }
@@ -381,7 +382,7 @@ extern "C" fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
 
     // creating a temporary Lua context in order to pass it to push & read functions
     let mut tmp_lua = InsideCallback {
-        lua: LuaContext(lua),
+        lua: unsafe { NonNull::new_unchecked(lua) },
     };
 
     // trying to read the arguments

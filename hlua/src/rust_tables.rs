@@ -20,7 +20,7 @@ fn push_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, 
     let raw_lua = lua.as_mut_lua();
 
     // creating empty table with pre-allocated array elements
-    unsafe { ffi::lua_createtable(raw_lua.0, iterator.size_hint().0 as i32, 0) };
+    unsafe { ffi::lua_createtable(raw_lua.as_ptr(), iterator.size_hint().0 as i32, 0) };
 
     for (elem, index) in iterator.zip(1..) {
         let size = match elem.push_to_lua(&mut lua) {
@@ -30,8 +30,8 @@ fn push_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, 
 
         match size {
             0 => continue,
-            1 => unsafe { ffi::lua_rawseti(raw_lua.0, -2, index) },
-            2 => unsafe { ffi::lua_settable(raw_lua.0, -3) },
+            1 => unsafe { ffi::lua_rawseti(raw_lua.as_ptr(), -2, index) },
+            2 => unsafe { ffi::lua_settable(raw_lua.as_ptr(), -3) },
             _ => unreachable!(),
         }
     }
@@ -54,7 +54,7 @@ fn push_rec_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<
     let (nrec, _) = iterator.size_hint();
 
     // creating empty table with pre-allocated non-array elements
-    unsafe { ffi::lua_createtable(raw_lua.0, 0, nrec as i32) };
+    unsafe { ffi::lua_createtable(raw_lua.as_ptr(), 0, nrec as i32) };
 
     for elem in iterator {
         let size = match elem.push_to_lua(&mut lua) {
@@ -64,7 +64,7 @@ fn push_rec_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<
 
         match size {
             0 => continue,
-            2 => unsafe { ffi::lua_settable(raw_lua.0, -3) },
+            2 => unsafe { ffi::lua_settable(raw_lua.as_ptr(), -3) },
             _ => unreachable!(),
         }
     }
@@ -104,12 +104,12 @@ impl<'lua, L> LuaRead<L> for Vec<AnyLuaValue>
         let mut dict: BTreeMap<i32, AnyLuaValue> = BTreeMap::new();
 
         let mut me = lua;
-        let raw_lua = me.as_mut_lua();
-        unsafe { ffi::lua_pushnil(raw_lua.0) };
+        let raw_lua = me.as_mut_lua().as_ptr();
+        unsafe { ffi::lua_pushnil(raw_lua) };
         let index = index - 1;
 
         loop {
-            if unsafe { ffi::lua_next(raw_lua.0, index) } == 0 {
+            if unsafe { ffi::lua_next(raw_lua, index) } == 0 {
                 break;
             }
 
@@ -118,7 +118,7 @@ impl<'lua, L> LuaRead<L> for Vec<AnyLuaValue>
                 match maybe_key {
                     None => {
                         // Cleaning up after ourselves
-                        unsafe { ffi::lua_pop(raw_lua.0, 2) };
+                        unsafe { ffi::lua_pop(raw_lua, 2) };
                         return Err(me);
                     }
                     Some(k) => k,
@@ -127,7 +127,7 @@ impl<'lua, L> LuaRead<L> for Vec<AnyLuaValue>
 
             let value: AnyLuaValue = LuaRead::lua_read_at_position(&mut me, -1).ok().unwrap();
 
-            unsafe { ffi::lua_pop(raw_lua.0, 1) };
+            unsafe { ffi::lua_pop(raw_lua, 1) };
 
             dict.insert(key, value);
         }
@@ -191,12 +191,12 @@ impl<'lua, L> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue>
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
         let mut me = lua;
         let raw_lua = me.as_mut_lua();
-        unsafe { ffi::lua_pushnil(raw_lua.0) };
+        unsafe { ffi::lua_pushnil(raw_lua.as_ptr()) };
         let index = index - 1;
         let mut result = HashMap::new();
 
         loop {
-            if unsafe { ffi::lua_next(raw_lua.0, index) } == 0 {
+            if unsafe { ffi::lua_next(raw_lua.as_ptr(), index) } == 0 {
                 break;
             }
 
@@ -206,7 +206,7 @@ impl<'lua, L> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue>
                 match maybe_key {
                     None => {
                         // Cleaning up after ourselves
-                        unsafe { ffi::lua_pop(raw_lua.0, 2) };
+                        unsafe { ffi::lua_pop(raw_lua.as_ptr(), 2) };
                         return Err(me);
                     }
                     Some(k) => k,
@@ -215,7 +215,7 @@ impl<'lua, L> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue>
 
             let value: AnyLuaValue = LuaRead::lua_read_at_position(&mut me, -1).ok().unwrap();
 
-            unsafe { ffi::lua_pop(raw_lua.0, 1) };
+            unsafe { ffi::lua_pop(raw_lua.as_ptr(), 1) };
 
             result.insert(key, value);
         }

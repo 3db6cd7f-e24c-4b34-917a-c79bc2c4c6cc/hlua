@@ -73,7 +73,7 @@ impl<'lua, L> Push<L> for AnyLuaValue
             }
             AnyLuaValue::LuaNil => {
                 unsafe {
-                    ffi::lua_pushnil(raw_lua.0);
+                    ffi::lua_pushnil(raw_lua.as_ptr());
                 }
                 Ok(PushGuard {
                     lua,
@@ -97,7 +97,7 @@ impl<'lua, L> LuaRead<L> for AnyLuaValue
         // If we know that the value on the stack is a string, we should try
         // to parse it as a string instead of a number or boolean, so that
         // values such as '1.10' don't become `AnyLuaValue::LuaNumber(1.1)`.
-        let data_type = unsafe { ffi::lua_type(raw_lua.0, index) };
+        let data_type = unsafe { ffi::lua_type(raw_lua.as_ptr(), index) };
         if data_type == ffi::LUA_TSTRING {
 
             let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
@@ -134,7 +134,7 @@ impl<'lua, L> LuaRead<L> for AnyLuaValue
                 Err(lua) => lua,
             };
 
-            if unsafe { ffi::lua_isnil(raw_lua.0, index) } {
+            if unsafe { ffi::lua_isnil(raw_lua.as_ptr(), index) } {
                 return Ok(AnyLuaValue::LuaNil);
             }
 
@@ -185,7 +185,7 @@ impl<'lua, L> Push<L> for AnyHashableLuaValue
             }
             AnyHashableLuaValue::LuaNil => {
                 unsafe {
-                    ffi::lua_pushnil(raw_lua.0);
+                    ffi::lua_pushnil(raw_lua.as_ptr());
                 }
                 Ok(PushGuard {
                     lua,
@@ -205,7 +205,7 @@ impl<'lua, L> LuaRead<L> for AnyHashableLuaValue
 {
     #[inline]
     fn lua_read_at_position(mut lua: L, index: i32) -> Result<AnyHashableLuaValue, L> {
-        let data_type = unsafe { ffi::lua_type(lua.as_lua().0, index) };
+        let data_type = unsafe { ffi::lua_type(lua.as_lua().as_ptr(), index) };
         if data_type == ffi::LUA_TSTRING {
 
             let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
@@ -242,7 +242,7 @@ impl<'lua, L> LuaRead<L> for AnyHashableLuaValue
                 Err(lua) => lua,
             };
 
-            if unsafe { ffi::lua_isnil(lua.as_lua().0, index) } {
+            if unsafe { ffi::lua_isnil(lua.as_lua().as_ptr(), index) } {
                 return Ok(AnyHashableLuaValue::LuaNil);
             }
 

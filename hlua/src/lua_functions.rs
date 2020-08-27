@@ -128,7 +128,7 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
             let (load_return_value, pushed_value) = {
                 let raw_lua = lua.as_mut_lua();
                 let code = ffi::lua_load(
-                    raw_lua.0,
+                    raw_lua.as_ptr(),
                     reader::<R>,
                     &mut read_data as *mut ReadData<_> as *mut libc::c_void,
                     b"chunk\0".as_ptr() as *const _,
@@ -271,12 +271,12 @@ impl<'lua, L> LuaFunction<L>
         let (pcall_return_value, pushed_value) = unsafe {
             // lua_pcall pops the function, so we have to make a copy of it
             let raw_lua = self.variable.as_mut_lua();
-            ffi::lua_pushvalue(raw_lua.0, -1);
+            ffi::lua_pushvalue(raw_lua.as_ptr(), -1);
             let num_pushed = match args.push_to_lua(self) {
                 Ok(g) => g.forget_internal(),
                 Err((err, _)) => return Err(LuaFunctionCallError::PushError(err)),
             };
-            let pcall_return_value = ffi::lua_pcall(raw_lua.0, num_pushed, 1, 0); // TODO: num ret values
+            let pcall_return_value = ffi::lua_pcall(raw_lua.as_ptr(), num_pushed, 1, 0); // TODO: num ret values
             let guard = PushGuard {
                 lua: &mut self.variable,
                 size: 1,
@@ -427,7 +427,7 @@ impl<'lua, L> LuaRead<L> for LuaFunction<L>
     #[inline]
     fn lua_read_at_position(mut lua: L, index: i32) -> Result<LuaFunction<L>, L> {
         assert!(index == -1); // FIXME:
-        if unsafe { ffi::lua_isfunction(lua.as_mut_lua().0, -1) } {
+        if unsafe { ffi::lua_isfunction(lua.as_mut_lua().as_ptr(), -1) } {
             Ok(LuaFunction { variable: lua })
         } else {
             Err(lua)

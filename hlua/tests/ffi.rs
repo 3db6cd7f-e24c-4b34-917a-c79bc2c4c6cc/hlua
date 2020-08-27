@@ -7,7 +7,7 @@ use hlua::AsLua;
 #[test]
 fn get_version() {
     let lua = hlua::Lua::new();
-    let state_ptr = lua.as_lua().state_ptr();
+    let state_ptr = lua.as_lua().as_ptr();
 
     let version = unsafe { hlua::ffi::lua_version(state_ptr) };
     

@@ -76,7 +76,7 @@ impl<'lua, L> LuaRead<L> for LuaTable<L>
 {
     #[inline]
     fn lua_read_at_position(mut lua: L, index: i32) -> Result<LuaTable<L>, L> {
-        if unsafe { ffi::lua_istable(lua.as_mut_lua().0, index) } {
+        if unsafe { ffi::lua_istable(lua.as_mut_lua().as_ptr(), index) } {
             Ok(LuaTable { table: lua, index })
         } else {
             Err(lua)
@@ -101,7 +101,7 @@ impl<'lua, L> LuaTable<L>
     pub fn iter<K, V>(&mut self) -> LuaTableIterator<L, K, V> {
         unsafe {
             let raw_lua = self.table.as_mut_lua();
-            ffi::lua_pushnil(raw_lua.0);
+            ffi::lua_pushnil(raw_lua.as_ptr());
 
             LuaTableIterator {
                 table: self,
@@ -153,7 +153,7 @@ impl<'lua, L> LuaTable<L>
             let raw_lua = me.as_mut_lua();
 
             index.push_no_err(&mut me).assert_one_and_forget();
-            ffi::lua_gettable(raw_lua.0, me.offset(-1));
+            ffi::lua_gettable(raw_lua.as_ptr(), me.offset(-1));
 
             let guard = PushGuard {
                 lua: me,
@@ -161,7 +161,7 @@ impl<'lua, L> LuaTable<L>
                 raw_lua,
             };
 
-            if ffi::lua_isnil(raw_lua.0, -1) {
+            if ffi::lua_isnil(raw_lua.as_ptr(), -1) {
                 None
             } else {
                 LuaRead::lua_read(guard).ok()
@@ -181,7 +181,7 @@ impl<'lua, L> LuaTable<L>
             index.push_no_err(&mut self).assert_one_and_forget();
 
             let raw_lua = self.as_mut_lua();
-            ffi::lua_gettable(raw_lua.0, self.offset(-1));
+            ffi::lua_gettable(raw_lua.as_ptr(), self.offset(-1));
 
             let guard = PushGuard {
                 lua: self,
@@ -189,7 +189,7 @@ impl<'lua, L> LuaTable<L>
                 raw_lua,
             };
 
-            if ffi::lua_isnil(raw_lua.0, -1) {
+            if ffi::lua_isnil(raw_lua.as_ptr(), -1) {
                 Err(guard)
             } else {
                 LuaRead::lua_read(guard)
@@ -234,7 +234,7 @@ impl<'lua, L> LuaTable<L>
               V: for<'r, 's> PushOne<&'r mut PushGuard<&'s mut LuaTable<L>>, Err = Ve>
     {
         unsafe {
-            let raw_lua = self.as_mut_lua().0;
+            let raw_lua = self.as_mut_lua().as_ptr();
             let my_offset = self.offset(-2);
 
             let mut guard = match index.push_to_lua(self) {
@@ -285,7 +285,7 @@ impl<'lua, L> LuaTable<L>
                 Err(_) => panic!(), // TODO:
             };
 
-            ffi::lua_settable(me.as_mut_lua().0, me.offset(-2));
+            ffi::lua_settable(me.as_mut_lua().as_ptr(), me.offset(-2));
 
             me.get(index).unwrap()
         }
@@ -344,11 +344,11 @@ impl<'lua, L> LuaTable<L>
             let raw_lua = self.as_mut_lua();
 
             // We put the metatable at the top of the stack.
-            if ffi::lua_getmetatable(raw_lua.0, self.index) == 0 {
+            if ffi::lua_getmetatable(raw_lua.as_ptr(), self.index) == 0 {
                 // No existing metatable ; create one then set it and reload it.
-                ffi::lua_newtable(raw_lua.0);
-                ffi::lua_setmetatable(raw_lua.0, self.offset(-1));
-                let r = ffi::lua_getmetatable(raw_lua.0, self.index);
+                ffi::lua_newtable(raw_lua.as_ptr());
+                ffi::lua_setmetatable(raw_lua.as_ptr(), self.offset(-1));
+                let r = ffi::lua_getmetatable(raw_lua.as_ptr(), self.index);
                 debug_assert!(r != 0);
             }
 
@@ -448,7 +448,7 @@ impl<'t, 'lua, L, K, V> Iterator for LuaTableIterator<'t, L, K, V>
             let raw_lua = self.table.as_mut_lua();
 
             // This call pops the current key and pushes the next key and value at the top.
-            if ffi::lua_next(raw_lua.0, self.table.offset(-1)) == 0 {
+            if ffi::lua_next(raw_lua.as_ptr(), self.table.offset(-1)) == 0 {
                 self.finished = true;
                 return None;
             }
@@ -459,7 +459,7 @@ impl<'t, 'lua, L, K, V> Iterator for LuaTableIterator<'t, L, K, V>
             let value = LuaRead::lua_read_at_position(&mut me, -1).ok();
 
             // Removing the value, leaving only the key on the top of the stack.
-            ffi::lua_pop(raw_lua.0, 1);
+            ffi::lua_pop(raw_lua.as_ptr(), 1);
 
             match (key, value) {
                 (Some(key), Some(value)) => Some(Some((key, value))),
@@ -474,7 +474,7 @@ impl<'t, L, K, V> Drop for LuaTableIterator<'t, L, K, V> {
     fn drop(&mut self) {
         unsafe {
             if !self.finished {
-                ffi::lua_pop(self.raw_lua.0, 1);
+                ffi::lua_pop(self.raw_lua.as_ptr(), 1);
             }
         }
     }
