@@ -1,17 +1,18 @@
 ## hlua
 
-This library is a high-level binding for Lua 5.2. You don't have access to the Lua stack, all you can do is read/write variables (including callbacks) and execute Lua code.
-
-[![Build Status](https://travis-ci.org/tomaka/hlua.svg?branch=master)](https://travis-ci.org/tomaka/hlua)
+This library is a high-level binding for Lua. You don't have access to the Lua stack, all you can do is read/write variables (including callbacks) and execute Lua code.
 
 ### How to install it?
 
-Add this to the `Cargo.toml` file of your project
+Add this to the `Cargo.toml` file of your project:
 
 ```toml
 [dependencies]
-hlua = "0.3"
+hlua = { git = "https://github.com/3db6cd7f-e24c-4b34-917a-c79bc2c4c6cc/hlua/", features = ["lua54"] }
 ```
+
+Which Lua version is used is determined by the `features = ["lua54"]` above, so changing version is easy.  
+Valid version features are `lua52` and `lua54`.
 
 ### How to use it?
 
@@ -39,7 +40,8 @@ let x: i32 = lua.get("x").unwrap();  // x is equal to 3
 Reading and writing global variables of the Lua context can be done with `set` and `get`.
 The `get` function returns an `Option<T>` and does a copy of the value.
 
-The base types that can be read and written are: `i8`, `i16`, `i32`, `u8`, `u16`, `u32`, `f32`, `f64`, `bool`, `String`. `&str` can be written but not read.
+The base types that can be read and written are: `i8`, `i16`, `i32`, `u8`, `u16`, `u32`, `f32`, `f64`, `bool`, `String`.  
+`&str` can be written but not read.
 
 If you wish so, you can also add other types by implementing the `Push` and `LuaRead` traits.
 
@@ -198,9 +200,9 @@ let mut lua = Lua::new();
 lua.execute::<()>(r#"v = { [-1] = -1, ["foo"] = 2, [2.] = 42 }"#).unwrap();
 
 let read: HashMap<_, _> = lua.get("v").unwrap();
-assert_eq!(read[&AnyHashableLuaValue::LuaNumber(-1)], AnyLuaValue::LuaNumber(-1.));
+assert_eq!(read[&AnyHashableLuaValue::LuaInteger(-1)], AnyLuaValue::LuaNumber(-1.));
 assert_eq!(read[&AnyHashableLuaValue::LuaString("foo".to_owned())], AnyLuaValue::LuaNumber(2.));
-assert_eq!(read[&AnyHashableLuaValue::LuaNumber(2)], AnyLuaValue::LuaNumber(42.));
+assert_eq!(read[&AnyHashableLuaValue::LuaInteger(2)], AnyLuaValue::LuaNumber(42.));
 assert_eq!(read.len(), 3);
 ```
 
