@@ -1,11 +1,11 @@
 [package]
 
-name = "lua52-sys"
+name = "lua54-sys"
 version = "0.1.2"
-authors = ["Pierre Krieger <pierre.krieger1708@gmail.com>"]
-description = "Bindings for Lua 5.2"
+authors = ["Pierre Krieger <pierre.krieger1708@gmail.com>", "Wildbook <book.wille@gmail.com>"]
+description = "Bindings for Lua 5.4"
 build = "build.rs"
-links = "lua52"
+links = "lua54"
 license = "MIT"
 repository = "https://github.com/tomaka/rust-hl-lua"
 

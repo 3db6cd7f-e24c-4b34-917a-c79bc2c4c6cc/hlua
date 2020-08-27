@@ -491,11 +491,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "lua52")]
     fn reading_hashmap_with_floating_indexes_works() {
         let mut lua = Lua::new();
-
         lua.execute::<()>(r#"v = { [-1.25] = -1, [2.5] = 42 }"#).unwrap();
-
         let read: HashMap<_, _> = lua.get("v").unwrap();
         // It works by truncating integers in some unspecified way
         // https://www.lua.org/manual/5.2/manual.html#lua_tointegerx

@@ -9,6 +9,12 @@ documentation = "http://docs.rs/hlua"
 license = "MIT"
 edition = "2018"
 
+[features]
+default = ["lua52"]
+lua52 = ["lua52-sys"]
+lua54 = ["lua54-sys"]
+
 [dependencies]
 libc = "0.2"
-lua52-sys = { version = "0.1.1", path = "../lua52-sys" }
+lua52-sys = { path = "../lua52-sys", optional = true }
+lua54-sys = { path = "../lua54-sys", optional = true }

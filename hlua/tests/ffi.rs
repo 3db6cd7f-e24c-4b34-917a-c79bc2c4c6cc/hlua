@@ -9,7 +9,8 @@ fn get_version() {
     let lua = hlua::Lua::new();
     let state_ptr = lua.as_lua().state_ptr();
 
-    let version = unsafe { *hlua::ffi::lua_version(state_ptr) as i32 };
-    // 502 = Lua 5.2
-    assert_eq!(version, 502);
+    let version = unsafe { hlua::ffi::lua_version(state_ptr) };
+    
+    #[cfg(feature = "lua52")] assert_eq!(502.0, unsafe { *version });
+    #[cfg(feature = "lua54")] assert_eq!(504.0, version);
 }

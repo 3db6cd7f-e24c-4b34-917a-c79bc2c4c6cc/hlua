@@ -32,6 +32,7 @@ pub enum AnyLuaValue {
     LuaString(String),
     LuaAnyString(AnyLuaString),
     LuaNumber(f64),
+    LuaInteger(i32),
     LuaBoolean(bool),
     LuaArray(Vec<(AnyLuaValue, AnyLuaValue)>),
     LuaNil,
@@ -53,6 +54,7 @@ impl<'lua, L> Push<L> for AnyLuaValue
             AnyLuaValue::LuaString(val) => val.push_to_lua(lua),
             AnyLuaValue::LuaAnyString(val) => val.push_to_lua(lua),
             AnyLuaValue::LuaNumber(val) => val.push_to_lua(lua),
+            AnyLuaValue::LuaInteger(val) => val.push_to_lua(lua),
             AnyLuaValue::LuaBoolean(val) => val.push_to_lua(lua),
             AnyLuaValue::LuaArray(val) => {
                 // Pushing a `Vec<(AnyLuaValue, AnyLuaValue)>` on a `L` requires calling the
@@ -268,6 +270,9 @@ mod tests {
     fn read_numbers() {
         let mut lua = Lua::new();
 
+        let val: AnyLuaValue = crate::LuaFunction::load(&mut lua, "return 2.5;").unwrap().call().unwrap();
+        assert_eq!(val, AnyLuaValue::LuaNumber(2.5));
+
         lua.set("a", "-2");
         lua.set("b", 3.5f32);
         lua.set("c", -2.0f32);
@@ -456,10 +461,14 @@ mod tests {
     fn push_numbers() {
         let mut lua = Lua::new();
 
-        lua.set("a", AnyLuaValue::LuaNumber(3.0));
+        lua.set("a", AnyLuaValue::LuaInteger(1));
+        lua.set("b", AnyLuaValue::LuaNumber(2.5));
 
         let x: i32 = lua.get("a").unwrap();
-        assert_eq!(x, 3);
+        let y: f64 = lua.get("b").unwrap();
+
+        assert_eq!(x, 1);
+        assert_eq!(y, 2.5);
     }
 
     #[test]

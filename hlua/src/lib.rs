@@ -109,8 +109,12 @@
 // Export the version of lua52_sys in use by this crate. This allows clients to perform low-level
 // Lua operations without worrying about semver.
 extern crate libc;
-#[doc(hidden)]
-pub extern crate lua52_sys as ffi;
+
+#[cfg(not(any(feature = "lua52", feature = "lua54")))]
+compile_error!("no lua version specified");
+
+#[doc(hidden)] #[cfg(feature = "lua52")] pub extern crate lua52_sys as ffi;
+#[doc(hidden)] #[cfg(feature = "lua54")] pub extern crate lua54_sys as ffi;
 
 use std::borrow::Borrow;
 use std::convert::From;
@@ -575,6 +579,7 @@ impl<'lua> Lua<'lua> {
     ///
     /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_bit32
     #[inline]
+    #[cfg(feature = "lua52")]
     pub fn open_bit32(&mut self) {
         unsafe { ffi::luaopen_bit32(self.lua.0) }
     }
@@ -641,6 +646,15 @@ impl<'lua> Lua<'lua> {
     #[inline]
     pub fn open_table(&mut self) {
         unsafe { ffi::luaopen_table(self.lua.0) }
+    }
+
+    /// Opens utf8 library.
+    ///
+    /// https://www.lua.org/manual/5.2/manual.html#pdf-luaopen_bit32
+    #[inline]
+    #[cfg(feature = "lua54")]
+    pub fn open_utf8(&mut self) {
+        unsafe { ffi::luaopen_utf8(self.lua.0) }
     }
 
     /// Executes some Lua code in the context.
@@ -993,7 +1007,6 @@ mod tests {
     fn opening_all_libraries_doesnt_panic() {
         let mut lua = Lua::new();
         lua.open_base();
-        lua.open_bit32();
         lua.open_coroutine();
         lua.open_debug();
         lua.open_io();
@@ -1002,5 +1015,11 @@ mod tests {
         lua.open_package();
         lua.open_string();
         lua.open_table();
+        
+        #[cfg(feature = "lua52")]
+        lua.open_bit32();
+
+        #[cfg(feature = "lua54")]
+        lua.open_utf8();
     }
 }

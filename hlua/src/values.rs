@@ -91,7 +91,7 @@ macro_rules! numeric_impl(
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 let raw_lua = lua.as_mut_lua();
-                unsafe { ffi::lua_pushnumber(raw_lua.0, self as f64) };
+                unsafe { ffi::lua_pushnumber(raw_lua.0, self as ffi::lua_Number) };
                 Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }

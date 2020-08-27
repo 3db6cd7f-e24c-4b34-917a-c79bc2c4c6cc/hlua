@@ -243,16 +243,17 @@ fn metatables_different() {
     struct Foo;
     struct Bar;
 
-    // Lua only calls __eq if both objects share metatable.
-    // If __eq gets called the two different types share a metatable, which is NOT good.
-    implement_lua_push!(Foo, |mut meta| meta.set("__eq", hlua::function0(|| true)));
-    implement_lua_push!(Bar, |mut meta| meta.set("__eq", hlua::function0(|| true)));
+    implement_lua_push!(Foo, |mut meta| meta.set("__index", hlua::function0(|| 10)));
+    implement_lua_push!(Bar, |mut meta| meta.set("__index", hlua::function0(|| 20)));
 
     let mut lua = hlua::Lua::new();
 
     lua.set("a", Foo);
     lua.set("b", Bar);
 
-    let equals: bool = lua.execute("return a == b").unwrap();
-    assert!(!equals);
+    let is_10: u32 = lua.execute("return a.a").unwrap();
+    let is_20: u32 = lua.execute("return b.b").unwrap();
+
+    assert_eq!(is_10, 10);
+    assert_eq!(is_20, 20);
 }
