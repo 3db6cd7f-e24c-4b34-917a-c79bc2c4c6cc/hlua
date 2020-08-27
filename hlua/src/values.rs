@@ -434,6 +434,32 @@ mod tests {
     }
 
     #[test]
+    fn read_extreme_numbers() {
+        let mut lua = Lua::new();
+
+        macro_rules! validate_extremes {
+            ($t:ident) => {
+                lua.set("min", $t::MIN);
+                lua.set("max", $t::MAX);
+                
+                assert_eq!(lua.get::<$t, _>("min").unwrap(), $t::MIN, "min invalid");
+                assert_eq!(lua.get::<$t, _>("max").unwrap(), $t::MAX, "max invalid");
+            }
+        }
+
+        validate_extremes!(i8);
+        validate_extremes!(i16);
+        validate_extremes!(i32);
+        
+        validate_extremes!(u8);
+        validate_extremes!(u16);
+        validate_extremes!(u32);
+
+        validate_extremes!(f32);
+        validate_extremes!(f64);
+    }
+
+    #[test]
     fn write_i32s() {
         // TODO:
 
