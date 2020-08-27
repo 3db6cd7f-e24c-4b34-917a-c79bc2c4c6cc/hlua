@@ -16,7 +16,7 @@ pub struct AnyLuaString(pub Vec<u8>);
 pub enum AnyHashableLuaValue {
     LuaString(String),
     LuaAnyString(AnyLuaString),
-    LuaNumber(i32),
+    LuaInteger(i32),
     LuaBoolean(bool),
     LuaArray(Vec<(AnyHashableLuaValue, AnyHashableLuaValue)>),
     LuaNil,
@@ -164,7 +164,7 @@ impl<'lua, L> Push<L> for AnyHashableLuaValue
         match self {
             AnyHashableLuaValue::LuaString(val) => val.push_to_lua(lua),
             AnyHashableLuaValue::LuaAnyString(val) => val.push_to_lua(lua),
-            AnyHashableLuaValue::LuaNumber(val) => val.push_to_lua(lua),
+            AnyHashableLuaValue::LuaInteger(val) => val.push_to_lua(lua),
             AnyHashableLuaValue::LuaBoolean(val) => val.push_to_lua(lua),
             AnyHashableLuaValue::LuaArray(val) => {
                 // Pushing a `Vec<(AnyHashableLuaValue, AnyHashableLuaValue)>` on a `L` requires calling the
@@ -221,7 +221,7 @@ impl<'lua, L> LuaRead<L> for AnyHashableLuaValue
         } else {
 
             let mut lua = match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                Ok(v) => return Ok(AnyHashableLuaValue::LuaNumber(v)),
+                Ok(v) => return Ok(AnyHashableLuaValue::LuaInteger(v)),
                 Err(lua) => lua,
             };
 
@@ -291,10 +291,10 @@ mod tests {
         lua.set("c", "4");
 
         let x: AnyHashableLuaValue = lua.get("a").unwrap();
-        assert_eq!(x, AnyHashableLuaValue::LuaNumber(-2));
+        assert_eq!(x, AnyHashableLuaValue::LuaInteger(-2));
 
         let y: AnyHashableLuaValue = lua.get("b").unwrap();
-        assert_eq!(y, AnyHashableLuaValue::LuaNumber(4));
+        assert_eq!(y, AnyHashableLuaValue::LuaInteger(4));
 
         let z: AnyHashableLuaValue = lua.get("c").unwrap();
         assert_eq!(z, AnyHashableLuaValue::LuaString("4".to_owned()));
@@ -429,7 +429,7 @@ mod tests {
         }
 
         fn get_numeric<'a>(table: &'a AnyHashableLuaValue, key: usize) -> &'a AnyHashableLuaValue {
-            let test_key = AnyHashableLuaValue::LuaNumber(key as i32);
+            let test_key = AnyHashableLuaValue::LuaInteger(key as i32);
             match table {
                 &AnyHashableLuaValue::LuaArray(ref vec) => {
                     let &(_, ref value) = vec.iter().find(|&&(ref key, _)| key == &test_key).expect("key not found");
@@ -440,8 +440,8 @@ mod tests {
         }
 
         let a: AnyHashableLuaValue = lua.get("a").unwrap();
-        assert_eq!(get(&a, "x"), &AnyHashableLuaValue::LuaNumber(12));
-        assert_eq!(get(&a, "y"), &AnyHashableLuaValue::LuaNumber(19));
+        assert_eq!(get(&a, "x"), &AnyHashableLuaValue::LuaInteger(12));
+        assert_eq!(get(&a, "y"), &AnyHashableLuaValue::LuaInteger(19));
 
         let b: AnyHashableLuaValue = lua.get("b").unwrap();
         assert_eq!(get(&get(&b, "z"), "x"), get(&a, "x"));
@@ -466,7 +466,7 @@ mod tests {
     fn push_hashable_numbers() {
         let mut lua = Lua::new();
 
-        lua.set("a", AnyHashableLuaValue::LuaNumber(3));
+        lua.set("a", AnyHashableLuaValue::LuaInteger(3));
 
         let x: i32 = lua.get("a").unwrap();
         assert_eq!(x, 3);

@@ -444,7 +444,7 @@ mod tests {
         // Same as above
         let read_btree: BTreeMap<_, _> = read.into_iter().collect();
         for (o, r) in orig_btree.iter().zip(read_btree.iter()) {
-            if let (&AnyHashableLuaValue::LuaNumber(i), &AnyLuaValue::LuaNumber(n)) = r {
+            if let (&AnyHashableLuaValue::LuaInteger(i), &AnyLuaValue::LuaNumber(n)) = r {
                 let (&o_i, &o_n) = o;
                 assert_eq!(o_i, i);
                 assert_eq!(o_n, n);
@@ -461,9 +461,9 @@ mod tests {
         lua.execute::<()>(r#"v = { [-1] = -1, [2] = 2, [42] = 42 }"#).unwrap();
 
         let read: HashMap<_, _> = lua.get("v").unwrap();
-        assert_eq!(read[&AnyHashableLuaValue::LuaNumber(-1)], AnyLuaValue::LuaNumber(-1.));
-        assert_eq!(read[&AnyHashableLuaValue::LuaNumber(2)], AnyLuaValue::LuaNumber(2.));
-        assert_eq!(read[&AnyHashableLuaValue::LuaNumber(42)], AnyLuaValue::LuaNumber(42.));
+        assert_eq!(read[&AnyHashableLuaValue::LuaInteger(-1)], AnyLuaValue::LuaNumber(-1.));
+        assert_eq!(read[&AnyHashableLuaValue::LuaInteger(2)], AnyLuaValue::LuaNumber(2.));
+        assert_eq!(read[&AnyHashableLuaValue::LuaInteger(42)], AnyLuaValue::LuaNumber(42.));
         assert_eq!(read.len(), 3);
     }
 
@@ -484,9 +484,9 @@ mod tests {
         lua.execute::<()>(r#"v = { [-1] = -1, ["foo"] = 2, [2.] = 42 }"#).unwrap();
 
         let read: HashMap<_, _> = lua.get("v").unwrap();
-        assert_eq!(read[&AnyHashableLuaValue::LuaNumber(-1)], AnyLuaValue::LuaNumber(-1.));
+        assert_eq!(read[&AnyHashableLuaValue::LuaInteger(-1)], AnyLuaValue::LuaNumber(-1.));
         assert_eq!(read[&AnyHashableLuaValue::LuaString("foo".to_owned())], AnyLuaValue::LuaNumber(2.));
-        assert_eq!(read[&AnyHashableLuaValue::LuaNumber(2)], AnyLuaValue::LuaNumber(42.));
+        assert_eq!(read[&AnyHashableLuaValue::LuaInteger(2)], AnyLuaValue::LuaNumber(42.));
         assert_eq!(read.len(), 3);
     }
 
@@ -499,8 +499,8 @@ mod tests {
         let read: HashMap<_, _> = lua.get("v").unwrap();
         // It works by truncating integers in some unspecified way
         // https://www.lua.org/manual/5.2/manual.html#lua_tointegerx
-        assert_eq!(read[&AnyHashableLuaValue::LuaNumber(-1)], AnyLuaValue::LuaNumber(-1.));
-        assert_eq!(read[&AnyHashableLuaValue::LuaNumber(2)], AnyLuaValue::LuaNumber(42.));
+        assert_eq!(read[&AnyHashableLuaValue::LuaInteger(-1)], AnyLuaValue::LuaNumber(-1.));
+        assert_eq!(read[&AnyHashableLuaValue::LuaInteger(2)], AnyLuaValue::LuaNumber(42.));
         assert_eq!(read.len(), 2);
     }
 
@@ -509,7 +509,7 @@ mod tests {
         let mut lua = Lua::new();
 
         let mut orig = HashMap::new();
-        orig.insert(AnyHashableLuaValue::LuaNumber(42), AnyLuaValue::LuaNumber(42.));
+        orig.insert(AnyHashableLuaValue::LuaInteger(42), AnyLuaValue::LuaNumber(42.));
         orig.insert(AnyHashableLuaValue::LuaString("foo".to_owned()), AnyLuaValue::LuaString("foo".to_owned()));
         orig.insert(AnyHashableLuaValue::LuaBoolean(true), AnyLuaValue::LuaBoolean(true));
 
@@ -530,6 +530,6 @@ mod tests {
         assert_eq!(
             read,
             [2., 3., 4.].iter().enumerate()
-                .map(|(k, v)| (AnyHashableLuaValue::LuaNumber((k + 1) as i32), AnyLuaValue::LuaNumber(*v))).collect::<HashMap<_, _>>());
+                .map(|(k, v)| (AnyHashableLuaValue::LuaInteger((k + 1) as i32), AnyLuaValue::LuaNumber(*v))).collect::<HashMap<_, _>>());
     }
 }
