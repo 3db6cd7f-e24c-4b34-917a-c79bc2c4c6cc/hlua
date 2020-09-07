@@ -7,7 +7,7 @@ use crate::PushGuard;
 use crate::PushOne;
 use crate::TuplePushError;
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::iter;
 
@@ -94,11 +94,59 @@ impl<'lua, L, T, E> PushOne<L> for Vec<T>
 {
 }
 
+#[cfg(not(feature = "no-sparse-arrays"))]
 impl<'lua, L, T> LuaRead<L> for Vec<T>
     where L: AsMutLua<'lua>,
           T: for<'a> LuaRead<&'a mut L>,
 {
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
+        let mut me = lua;
+        let raw_lua = me.as_mut_lua().as_ptr();
+
+        unsafe { ffi::lua_len(raw_lua, index) };
+        let len = unsafe { ffi::lua_tounsignedx(raw_lua, -1, std::ptr::null_mut()) };
+        let mut vec = Vec::<T>::with_capacity(len as _);
+
+        for n in 1..=len as i32 {
+            // pop(length (first time) or the last item (other times))
+            unsafe { ffi::lua_pop(raw_lua, 1) };
+
+            // push(vec[n])
+            unsafe { ffi::lua_rawgeti(raw_lua, index, n) };
+
+            // if it's nil, we reached the "end"
+            if unsafe { ffi::lua_isnil(raw_lua, -1) } {
+                break;
+            }
+
+            // try to read the top value as a T
+            match T::lua_read_at_position(&mut me, -1).ok() {
+                // if we succeed, add it to the output vector
+                Some(val) => vec.push(val),
+                // if not, pop the value and return Err
+                None => {
+                    unsafe { ffi::lua_pop(raw_lua, 1) };
+                    return Err(me);
+                },
+            }
+        }
+
+        // pop the last value
+        unsafe { ffi::lua_pop(raw_lua, 1) };
+
+        // return the vec
+        Ok(vec)
+    }
+}
+
+#[cfg(feature = "no-sparse-arrays")]
+impl<'lua, L, T> LuaRead<L> for Vec<T>
+    where L: AsMutLua<'lua>,
+          T: for<'a> LuaRead<&'a mut L>,
+{
+    fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
+        use std::collections::BTreeMap;
+
         // We need this as iteration order isn't guaranteed to match order of
         // keys, even if they're numeric
         // https://www.lua.org/manual/5.2/manual.html#pdf-next
@@ -372,6 +420,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "no-sparse-arrays")]
     fn reading_vec_from_sparse_table_doesnt_work() {
         let mut lua = Lua::new();
 
@@ -394,6 +443,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "no-sparse-arrays")]
     fn reading_vec_with_complex_indexes_doesnt_work() {
         let mut lua = Lua::new();
 

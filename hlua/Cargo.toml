@@ -12,8 +12,16 @@ edition = "2018"
 [features]
 lua52 = ["lua52-sys"]
 lua54 = ["lua54-sys"]
+no-sparse-arrays = []
 
 [dependencies]
 libc = "0.2"
 lua52-sys = { path = "../lua52-sys", optional = true }
 lua54-sys = { path = "../lua54-sys", optional = true }
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "bench"
+harness = false
