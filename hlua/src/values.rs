@@ -56,7 +56,14 @@ macro_rules! unsigned_impl(
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 let raw_lua = lua.as_mut_lua();
-                unsafe { ffi::lua_pushunsigned(raw_lua.as_ptr(), self as ffi::lua_Unsigned) };
+
+                match true {
+                    #[cfg(feature = "_luaapi_51")] true => unsafe { ffi::lua_pushinteger(raw_lua.as_ptr(), self as _) },
+                    #[cfg(feature = "_luaapi_52")] true => unsafe { ffi::lua_pushunsigned(raw_lua.as_ptr(), self as _) },
+                    #[cfg(feature = "_luaapi_54")] true => unsafe { ffi::lua_pushunsigned(raw_lua.as_ptr(), self as _) },
+                    false => unreachable!(),
+                }
+
                 Ok(PushGuard { lua, size: 1, raw_lua })
             }
         }
@@ -68,7 +75,12 @@ macro_rules! unsigned_impl(
             #[inline]
             fn lua_read_at_position(lua: L, index: i32) -> Result<$t, L> {
                 let mut success = mem::MaybeUninit::uninit();
-                let val = unsafe { ffi::lua_tounsignedx(lua.as_lua().as_ptr(), index, success.as_mut_ptr()) };
+                let val = match true {
+                    #[cfg(feature = "_luaapi_51")] true => unsafe { ffi::lua_tointegerx(lua.as_lua().as_ptr(), index, success.as_mut_ptr()) },
+                    #[cfg(feature = "_luaapi_52")] true => unsafe { ffi::lua_tounsignedx(lua.as_lua().as_ptr(), index, success.as_mut_ptr()) },
+                    #[cfg(feature = "_luaapi_54")] true => unsafe { ffi::lua_tounsignedx(lua.as_lua().as_ptr(), index, success.as_mut_ptr()) },
+                    false => unreachable!(),
+                };
                 match unsafe { success.assume_init() } {
                     0 => Err(lua),
                     _ => Ok(val as $t)

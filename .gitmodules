@@ -1,0 +1,3 @@
+[submodule "luajit2-sys/lua"]
+	path = luajit2-sys/lua
+	url = https://github.com/openresty/luajit2

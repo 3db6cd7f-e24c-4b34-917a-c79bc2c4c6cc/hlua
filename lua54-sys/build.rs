@@ -4,7 +4,9 @@ extern crate pkg_config;
 use std::env;
 
 fn main() {
-    if pkg_config::find_library("lua5.4").is_ok() { return }
+    if pkg_config::find_library("lua5.4").is_ok() {
+        return;
+    }
 
     let mut build = cc::Build::new();
 
@@ -47,7 +49,7 @@ fn main() {
         .file("lua/src/linit.c")
         .file("lua/src/lutf8lib.c")
 
-        .define("LUA_INT_TYPE",   Some("LUA_INT_INT"))
+        .define("LUA_INT_TYPE", Some("LUA_INT_INT"))
         .define("LUA_FLOAT_TYPE", Some("LUA_FLOAT_DOUBLE"))
 
         .include("lua/src")

@@ -1,0 +1,152 @@
+[package]
+name = "luajit2-sys"
+version = "0.0.2"
+description = "LuaJIT-2.1 FFI Bindings"
+authors = ["Aaron Loucks <aloucks@cofront.net>", "wildbook <book.wille@gmail.com>"]
+edition = "2018"
+keywords = ["lua", "luajit", "script"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/aloucks/luajit2-sys"
+documentation = "https://docs.rs/luajit2-sys"
+links = "luajit"
+
+# Some of the descriptions for features below are copied from LuaJIT.
+# The credit for writing those goes to the authors of the original descriptions.
+
+[features]
+
+# [Debugging]
+# Check for unanchored CTypes.
+ctype_check_anchor = []
+
+# [Debugging]
+# For register allocator debugging.
+debug_ra = []
+
+# Disable debug info on errors.
+disable_debuginfo = []
+
+# Permanently disable the FFI extension to reduce the size of the LuaJIT executable.
+# But please consider that the FFI library is compiled-in, but NOT loaded by default.
+# It only allocates any memory, if you actually make use of it.
+disable_ffi = []
+
+# Disable LJ_GC64 mode for x64.
+disable_gc64 = []
+
+# Disable the JIT compiler, i.e. turn LuaJIT into a pure interpreter.
+disable_jit = []
+
+# Disable the jit.util table.
+disable_jitutil = []
+
+# Disable the jit.profile table.
+disable_profile = []
+
+# Disable the vmevent API.
+disable_vmevent = []
+
+# [Debugging]
+# Enable Lua debug hooks in JIT compiled code.
+enable_checkhook = []
+
+# Enable the JIT compiler on platforms where it's disabled by default (iOS / Console).
+# The `disable_jit` feature has priority if both are set.
+enable_jit = []
+
+# Features from Lua 5.2 that are unlikely to break existing code are
+# enabled by default. Some other features that *might* break some existing
+# code (e.g. __pairs or os.execute() return values) can be enabled here.
+# Note: this does not provide full compatibility with Lua 5.2 at this time.
+enable_lua52compat = []
+
+# [Debugging]
+# TODO: Explain.
+enable_table_bump = []
+
+# Replacement for unaligned loads on Xbox 360. Disabled by default since it's
+# usually more costly than the occasional stall when crossing a cache-line.
+no_unaligned = []
+
+# See lj_err.c
+unwind_external = []
+
+# Use RWX for machine code page protection
+security_mcode_insecure = []
+# Use RW^X for machine code page protection
+security_mcode_secure = []
+
+# If you really don't care about security, then set this feature.
+# This yields a predictable seed and provides NO SECURITY against various
+# attacks on the VM.
+# 
+# This is NOT the way to get predictable table iteration,
+# predictable trace generation, predictable bytecode generation, etc.
+security_prng_insecure = []
+# Initialize the PRNG with secure random data from the OS
+security_prng_secure = []
+
+# Use only sparse string hash.
+security_strhash_sparse = []
+# Use sparse + dense string hash.
+security_strhash_sparse_dense = []
+
+# Use linear string IDs
+security_strid_linear = []
+# Reseed String ID from PRNG after random interval < 255
+security_strid_reseed_255 = []
+# Reseed String ID from PRNG after random interval < 15
+security_strid_reseed_15 = []
+# Reseed String ID from PRNG at random
+security_strid_random = []
+
+# [Debugging]
+# This is the client for the GDB JIT API. GDB 7.0 or higher is required
+# to make use of it. See lj_gdbjit.c for details. Enabling this causes
+# a non-negligible overhead, even when not running under GDB.
+use_gdbjit = []
+
+# [Debugging]
+# Create symbol table of JIT-compiled code. For use with Linux perf tools.
+use_perftools = []
+
+# Use the system provided memory allocator (realloc) instead of the
+# bundled memory allocator. This is slower, but sometimes helpful for debugging.
+# This option cannot be enabled on x64 without GC64, since realloc usually
+# doesn't return addresses in the right address range. OTOH this option is
+# mandatory for Valgrind's memcheck tool on x64 and the only way to get useful
+# results from it for all other architectures.
+use_sysmalloc = []
+
+# [Debugging]
+# This define is required to run LuaJIT under Valgrind.
+# The Valgrind header files must be installed. You should enable debug information, too.
+use_valgrind = []
+
+# Some architectures (e.g. PPC) can use either single-number or dual-number mode.
+# Set one of these features to override the default mode.
+# Please see LJ_ARCH_NUMMODE in lj_arch.h for details.
+nummode_single = []
+
+# Some architectures (e.g. PPC) can use either single-number or dual-number mode.
+# Set one of these features to override the default mode.
+# Please see LJ_ARCH_NUMMODE in lj_arch.h for details.
+nummode_dual = []
+
+# [Debugging]
+# Turn on assertions for the Lua/C API to debug problems with lua_* calls.
+# This is rather slow -- use only while developing C libraries/embeddings.
+use_apicheck = []
+
+# [Debugging]
+# Turn on assertions for the whole LuaJIT VM. This significantly slows down
+# everything. Use only if you suspect a problem with LuaJIT itself.
+use_assert = []
+
+[dependencies]
+libc = "0.2"
+
+[build-dependencies]
+cc = "1.0.40"
+fs_extra = "1.1.0"

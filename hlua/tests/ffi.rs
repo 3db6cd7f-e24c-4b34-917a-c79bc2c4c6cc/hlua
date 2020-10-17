@@ -11,6 +11,7 @@ fn get_version() {
 
     let version = unsafe { hlua::ffi::lua_version(state_ptr) };
     
-    #[cfg(feature = "lua52")] assert_eq!(502.0, unsafe { *version });
-    #[cfg(feature = "lua54")] assert_eq!(504.0, version);
+    #[cfg(feature = "luajit2")] assert_eq!(501.0, unsafe { *version });
+    #[cfg(feature = "lua52")]   assert_eq!(502.0, unsafe { *version });
+    #[cfg(feature = "lua54")]   assert_eq!(504.0, version);
 }

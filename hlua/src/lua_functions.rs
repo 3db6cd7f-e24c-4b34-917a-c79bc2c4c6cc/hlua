@@ -4,7 +4,6 @@ use std::io::Cursor;
 use std::io::Error as IoError;
 use std::io::Read;
 use std::mem;
-use std::ptr;
 
 use crate::AsLua;
 use crate::AsMutLua;
@@ -129,10 +128,12 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
                 let raw_lua = lua.as_mut_lua();
                 let code = ffi::lua_load(
                     raw_lua.as_ptr(),
-                    reader::<R>,
+                    Some(reader::<R>),
                     &mut read_data as *mut ReadData<_> as *mut libc::c_void,
                     b"chunk\0".as_ptr() as *const _,
-                    ptr::null(),
+
+                    #[cfg(any(feature = "_luaapi_52", feature = "_luaapi_54"))]
+                    std::ptr::null(),
                 );
                 (
                     code,

@@ -119,7 +119,7 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
                 //| -3 userdata (data: T)
                 //| -2 table (metatable)
                 //| -1 string ("__gc")
-                ffi::lua_pushcfunction(raw_lua.as_ptr(), destructor_wrapper::<T>);
+                ffi::lua_pushcfunction(raw_lua.as_ptr(), Some(destructor_wrapper::<T>));
                 //| -4 userdata (data: T)
                 //| -3 table (metatable)
                 //| -2 string ("__gc")

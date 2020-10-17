@@ -218,14 +218,14 @@ macro_rules! impl_function_ext {
                             Err(_) => unreachable!(),
                         };
 
-                        ffi::lua_pushcfunction(raw_lua.as_ptr(), closure_destructor_wrapper::<Z>);
+                        ffi::lua_pushcfunction(raw_lua.as_ptr(), Some(closure_destructor_wrapper::<Z>));
                         ffi::lua_rawset(raw_lua.as_ptr(), -3);
                     }
                     ffi::lua_setmetatable(raw_lua.as_ptr(), -2);
 
                     // pushing wrapper as a closure
                     let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(raw_lua.as_ptr(), wrapper, 1);
+                    ffi::lua_pushcclosure(raw_lua.as_ptr(), Some(wrapper), 1);
                     Ok(PushGuard { lua, size: 1, raw_lua })
                 }
             }
@@ -279,7 +279,7 @@ macro_rules! impl_function_ext {
                             Err(_) => unreachable!(),
                         };
 
-                        ffi::lua_pushcfunction(raw_lua.as_ptr(), closure_destructor_wrapper::<Z>);
+                        ffi::lua_pushcfunction(raw_lua.as_ptr(), Some(closure_destructor_wrapper::<Z>));
                         ffi::lua_rawset(raw_lua.as_ptr(), -3);
 
                         ffi::lua_setmetatable(raw_lua.as_ptr(), -2);
@@ -287,7 +287,7 @@ macro_rules! impl_function_ext {
 
                     // pushing wrapper as a closure
                     let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(raw_lua.as_ptr(), wrapper, 1);
+                    ffi::lua_pushcclosure(raw_lua.as_ptr(), Some(wrapper), 1);
                     Ok(PushGuard { lua, size: 1, raw_lua })
                 }
             }

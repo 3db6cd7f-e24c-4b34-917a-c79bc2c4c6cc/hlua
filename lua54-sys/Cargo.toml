@@ -1,13 +1,12 @@
 [package]
-
 name = "lua54-sys"
-version = "0.1.2"
-authors = ["Pierre Krieger <pierre.krieger1708@gmail.com>", "Wildbook <book.wille@gmail.com>"]
+version = "0.2.0"
+authors = ["wildbook <book.wille@gmail.com>"]
 description = "Bindings for Lua 5.4"
+edition = "2018"
 build = "build.rs"
 links = "lua54"
 license = "MIT"
-repository = "https://github.com/tomaka/rust-hl-lua"
 
 [build-dependencies]
 pkg-config = "0.3"

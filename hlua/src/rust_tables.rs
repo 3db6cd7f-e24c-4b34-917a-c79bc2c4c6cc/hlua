@@ -103,11 +103,17 @@ impl<'lua, L, T> LuaRead<L> for Vec<T>
         let mut me = lua;
         let raw_lua = me.as_mut_lua().as_ptr();
 
-        unsafe { ffi::lua_len(raw_lua, index) };
-        let len = unsafe { ffi::lua_tounsignedx(raw_lua, -1, std::ptr::null_mut()) };
+        let len = match true {
+            #[cfg(feature = "_luaapi_51")] true => unsafe { ffi::lua_objlen(raw_lua, index) },
+            #[cfg(feature = "_luaapi_52")] true => unsafe { ffi::lua_rawlen(raw_lua, index) },
+            #[cfg(feature = "_luaapi_54")] true => unsafe { ffi::lua_rawlen(raw_lua, index) },
+            false => unreachable!(),
+        };
+
+        unsafe { ffi::lua_pushnil(raw_lua); }
         let mut vec = Vec::<T>::with_capacity(len as _);
 
-        for n in 1..=len as i32 {
+        for n in 1..=len as _ {
             // pop(length (first time) or the last item (other times))
             unsafe { ffi::lua_pop(raw_lua, 1) };
 
@@ -561,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "lua52")]
+    #[cfg(feature = "_luaapi_52")]
     fn reading_hashmap_with_floating_indexes_works() {
         let mut lua = Lua::new();
         lua.execute::<()>(r#"v = { [-1.25] = -1, [2.5] = 42 }"#).unwrap();
