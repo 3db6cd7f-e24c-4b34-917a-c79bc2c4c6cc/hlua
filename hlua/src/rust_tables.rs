@@ -76,6 +76,35 @@ fn push_rec_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<
     })
 }
 
+pub struct IntoIteratorWrapper<I: IntoIterator>(pub I);
+impl<I: IntoIterator> From<I> for IntoIteratorWrapper<I> {
+    fn from(iter: I) -> Self { IntoIteratorWrapper(iter) }
+}
+impl<V, T: Iterator<Item = V>, I: IntoIterator<Item = V, IntoIter = T>> IntoIterator for IntoIteratorWrapper<I> {
+    type Item = V;
+    type IntoIter = T;
+    fn into_iter(self) -> <Self as IntoIterator>::IntoIter { self.0.into_iter() }
+}
+
+impl<'lua, L, T, E, I> Push<L> for IntoIteratorWrapper<I>
+    where L: AsMutLua<'lua>,
+          I: IntoIterator<Item = T>,
+          T: for<'a> Push<&'a mut L, Err = E>,
+{
+    type Err = E;
+    #[inline]
+    fn push_to_lua(self, lua: L) -> Result<PushGuard<L>, (E, L)> {
+        push_iter(lua, self.0.into_iter())
+    }
+}
+
+impl<'lua, L, T, E, I> PushOne<L> for IntoIteratorWrapper<I>
+    where L: AsMutLua<'lua>,
+          I: IntoIterator<Item = T>,
+          T: for<'a> Push<&'a mut L, Err = E>,
+{
+}
+
 impl<'lua, L, T, E> Push<L> for Vec<T>
     where L: AsMutLua<'lua>,
           T: for<'a> Push<&'a mut L, Err = E>

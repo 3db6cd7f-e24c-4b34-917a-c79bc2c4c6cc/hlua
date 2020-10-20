@@ -136,6 +136,7 @@ pub use lua_functions::LuaFunctionCallError;
 pub use lua_functions::{LuaCode, LuaCodeFromReader};
 pub use lua_tables::LuaTable;
 pub use lua_tables::LuaTableIterator;
+pub use rust_tables::IntoIteratorWrapper;
 pub use tuples::TuplePushError;
 pub use userdata::UserdataOnStack;
 pub use userdata::{push_userdata, read_userdata};
