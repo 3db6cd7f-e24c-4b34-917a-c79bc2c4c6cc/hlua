@@ -145,3 +145,24 @@ fn no_stack_wrap() {
     assert_eq!(lua.execute::<bool>("return foo(10, nil)").unwrap(), true);
     assert_eq!(lua.execute::<bool>("return foo(10)").unwrap(), true);
 }
+
+// TODO: Fix nested tuples!
+// #[test]
+// fn reading_tuple_vec_works() {
+//     let mut lua = crate::Lua::new();
+
+//     lua.execute::<()>(r#"v = { { 1, 2 }, { 3, 4 } }"#).unwrap();
+
+//     let read: Vec<(u32, u32)> = lua.get("v").unwrap();
+//     assert_eq!(read, [(1,2), (3,4)]);
+// }
+
+// #[test]
+// fn reading_nested_tuple_works() {
+//     let mut lua = crate::Lua::new();
+
+//     lua.execute::<()>(r#"v = { { 1, 2 }, { 3, 4 } }"#).unwrap();
+
+//     let read: ((u32, u32), (u32, u32)) = lua.get("v").unwrap();
+//     assert_eq!(read, ((1,2), (3,4)));
+// }

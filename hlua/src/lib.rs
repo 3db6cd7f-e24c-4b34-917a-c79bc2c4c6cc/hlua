@@ -105,6 +105,7 @@
 //! - TODO: userdata
 //!
 #![allow(clippy::missing_safety_doc)] // TODO: Document instead
+#![cfg_attr(feature = "nightly", feature(min_const_generics))]
 
 // Export the version of lua52_sys in use by this crate. This allows clients to perform low-level
 // Lua operations without worrying about semver.

@@ -143,7 +143,7 @@ impl<'lua, L, T> LuaRead<L> for Vec<T>
         let mut vec = Vec::<T>::with_capacity(len as _);
 
         for n in 1..=len as _ {
-            // pop(length (first time) or the last item (other times))
+            // pop(length (first time) or the last item)
             unsafe { ffi::lua_pop(raw_lua, 1) };
 
             // push(vec[n])
@@ -251,6 +251,177 @@ impl<'lua, L, T> LuaRead<L> for Vec<T>
                 previous_key = k;
             }
         }
+
+        Ok(result)
+    }
+}
+
+#[cfg(feature = "nightly")]
+#[cfg(not(feature = "no-sparse-arrays"))]
+impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
+    where L: AsMutLua<'lua>,
+          T: for<'a> LuaRead<&'a mut L> + Copy,
+{
+    fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
+        use std::mem::MaybeUninit;
+
+        let mut me = lua;
+        let raw_lua = me.as_mut_lua().as_ptr();
+
+        let len = match true {
+            #[cfg(feature = "_luaapi_51")] true => unsafe { ffi::lua_objlen(raw_lua, index) },
+            #[cfg(feature = "_luaapi_52")] true => unsafe { ffi::lua_rawlen(raw_lua, index) },
+            #[cfg(feature = "_luaapi_54")] true => unsafe { ffi::lua_rawlen(raw_lua, index) },
+            false => unreachable!(),
+        } as usize;
+
+        // we can't check == since the object might have more properties than just array indices
+        // we could just disallow this, but there's not really a reason to force mapping objects
+        if len < C {
+            return Err(me);
+        }
+
+        unsafe { ffi::lua_pushnil(raw_lua); }
+        let mut arr: [MaybeUninit<T>; C] = unsafe { MaybeUninit::uninit().assume_init() };
+
+        for n in 0..C as _ {
+            // pop(length (first time) or the last item)
+            unsafe { ffi::lua_pop(raw_lua, 1) };
+
+            // push(vec[n])
+            unsafe { ffi::lua_rawgeti(raw_lua, index, (n + 1) as _) };
+
+            // if it's nil, we reached the "end"
+            if unsafe { ffi::lua_isnil(raw_lua, -1) } {
+                break;
+            }
+
+            // try to read the top value as a T
+            match T::lua_read_at_position(&mut me, -1).ok() {
+                // if we succeed, add it to the output array
+                Some(val) => arr[n] = MaybeUninit::new(val),
+                // if not, pop the value and return Err
+                None => {
+                    unsafe { ffi::lua_pop(raw_lua, 1) };
+                    return Err(me);
+                },
+            }
+        }
+
+        // pop the last value
+        unsafe { ffi::lua_pop(raw_lua, 1) };
+
+        let out = unsafe {
+            // Workaround since const generics currently can't be transmuted
+            // Dangerous and not to be trusted, please replace as soon as the issue is resolved
+            // 
+            // https://github.com/rust-blang/rust/issues/61956
+
+            core::mem::transmute_copy(&arr)
+        };
+
+        // return the array
+        Ok(out)
+    }
+}
+
+#[cfg(feature = "nightly")]
+#[cfg(feature = "no-sparse-arrays")]
+impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
+    where L: AsMutLua<'lua>,
+          T: for<'a> LuaRead<&'a mut L> + Copy,
+{
+    fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
+        use std::mem::MaybeUninit;
+        use std::collections::BTreeMap;
+
+        // We need this as iteration order isn't guaranteed to match order of
+        // keys, even if they're numeric
+        // https://www.lua.org/manual/5.2/manual.html#pdf-next
+        let mut dict: BTreeMap<i32, T> = BTreeMap::new();
+
+        let mut me = lua;
+        let raw_lua = me.as_mut_lua().as_ptr();
+        unsafe { ffi::lua_pushnil(raw_lua) };
+        let index = index - 1;
+
+        loop {
+            if unsafe { ffi::lua_next(raw_lua, index) } == 0 {
+                break;
+            }
+
+            let key = {
+                let maybe_key: Option<i32> = LuaRead::lua_read_at_position(&mut me, -2).ok();
+                match maybe_key {
+                    None => {
+                        // Cleaning up after ourselves
+                        unsafe { ffi::lua_pop(raw_lua, 2) };
+                        return Err(me);
+                    }
+                    Some(k) => k,
+                }
+            };
+
+            match T::lua_read_at_position(&mut me, -1).ok() {
+                Some(value) => {
+                    dict.insert(key, value);
+                },
+                None => {
+                    unsafe { ffi::lua_pop(raw_lua, 1) };
+                    return Err(me);
+                },
+            }
+
+            unsafe { ffi::lua_pop(raw_lua, 1) };
+        }
+
+        let (maximum_key, minimum_key) = (
+            *dict.keys().max().unwrap_or(&1),
+            *dict.keys().min().unwrap_or(&1),
+        );
+
+        if minimum_key != 1 {
+            // Rust doesn't support sparse arrays or arrays with negative
+            // indices
+            return Err(me);
+        }
+
+        if maximum_key < C as _ {
+            // We want to be sure we can fill the array
+            return Err(me);
+        }
+
+        let mut result: [MaybeUninit<T>; C] = unsafe { MaybeUninit::uninit().assume_init() };
+
+        // We expect to start with first element of table and have this
+        // be smaller that first key by one
+        let mut previous_key = 0;
+
+        // By this point, we actually iterate the map to move values to Vec
+        // and check that table represented non-sparse 1-indexed array
+        for (k, v) in dict {
+            if k > C as _ {
+                break;
+            }
+
+            if previous_key + 1 != k {
+                return Err(me);
+            } else {
+                // We just push, thus converting Lua 1-based indexing
+                // to Rust 0-based indexing
+                result[(k - 1) as usize] = MaybeUninit::new(v);
+                previous_key = k;
+            }
+        }
+
+        let result = unsafe {
+            // Workaround since const generics currently can't be transmuted
+            // Dangerous and not to be trusted, please replace as soon as the issue is resolved
+            // 
+            // https://github.com/rust-lang/rust/issues/61956
+
+            core::mem::transmute_copy(&result)
+        };
 
         Ok(result)
     }
@@ -435,6 +606,102 @@ mod tests {
         let val: i32 = lua.get("a").unwrap();
         assert_eq!(val, 12);
     }
+    
+    #[test]
+    #[cfg(feature = "nightly")]
+    fn reading_array_works() {
+        let mut lua = Lua::new();
+
+        let orig = [1., 2., 3.];
+
+        lua.set("v", &orig[..]);
+
+        let read: [f32; 3] = lua.get("v").unwrap();
+        assert_eq!(read, orig);
+    }
+
+    #[test]
+    #[cfg(feature = "nightly")]
+    fn reading_array_as_arg_works() {
+        let mut lua = Lua::new();
+
+        lua.set("fn", crate::function1(|array: [u32; 2]| { }));
+        assert_ne!(lua.get::<AnyLuaValue, _>("fn"), None);
+    }
+
+    #[test]
+    #[cfg(feature = "nightly")]
+    #[cfg(not(feature = "no-sparse-arrays"))]
+    fn reading_too_large_array_ish_works() {
+        let mut lua = Lua::new();
+
+        lua.execute::<()>(r#"v = { [1] = 1.0, ["foo"] = 2.0 }"#).unwrap();
+
+        let read: [f32; 1] = lua.get("v").unwrap();
+        assert_eq!(read[..], [1.]);
+    }
+
+    #[test]
+    #[cfg(feature = "nightly")]
+    fn reading_too_large_array_works() {
+        let mut lua = Lua::new();
+
+        let orig = [1., 2., 3.];
+
+        lua.set("v", &orig[..]);
+
+        let read: [f32; 2] = lua.get("v").unwrap();
+        assert_eq!(read[..], [1., 2.]);
+    }
+
+    #[test]
+    #[cfg(feature = "nightly")]
+    fn reading_too_small_array_doesnt_work() {
+        let mut lua = Lua::new();
+
+        let orig = [1.];
+
+        lua.set("v", &orig[..]);
+
+        let read: Option<[f32; 2]> = lua.get("v");
+        assert_eq!(read, None);
+    }
+
+    #[test]
+    #[cfg(feature = "nightly")]
+    fn reading_too_small_array_ish_doesnt_work() {
+        let mut lua = Lua::new();
+
+        lua.execute::<()>(r#"v = { [1] = 1.0, ["foo"] = 2.0 }"#).unwrap();
+
+        let read: Option<[f32; 2]> = lua.get("v");
+        assert_eq!(read, None);
+    }
+
+    #[test]
+    #[cfg(feature = "nightly")]
+    fn reading_array_with_empty_table_works() {
+        let mut lua = Lua::new();
+
+        lua.execute::<()>(r#"v = { }"#).unwrap();
+
+        let read: [u32; 0] = lua.get("v").unwrap();
+        assert_eq!(read.len(), 0);
+    }
+
+    #[test]
+    #[cfg(feature = "nightly")]
+    fn reading_nested_array_works() {
+        let mut lua = Lua::new();
+
+        lua.execute::<()>(r#"v = { { 1, 2 , 3, 4 }, { 5, 6, 7, 8 } }"#).unwrap();
+
+        let read: [[u32; 4]; 2] = lua.get("v").unwrap();
+        assert_eq!(read, [[1, 2, 3, 4], [5, 6, 7, 8]]);
+        
+        let read: Vec<[u32; 4]> = lua.get("v").unwrap();
+        assert_eq!(read, [[1, 2, 3, 4], [5, 6, 7, 8]]);
+    }
 
     #[test]
     fn reading_vec_works() {
@@ -475,6 +742,16 @@ mod tests {
 
         let read: Vec<AnyLuaValue> = lua.get("v").unwrap();
         assert_eq!(read.len(), 0);
+    }
+
+    #[test]
+    fn reading_nested_vec_works() {
+        let mut lua = Lua::new();
+
+        lua.execute::<()>(r#"v = { { { 1, 2 }, { 3, 4 }, { 5, 6 } }, { { 7, 8 } } }"#).unwrap();
+
+        let read: Vec<Vec<Vec<u32>>> = lua.get("v").unwrap();
+        assert_eq!(read, [&[[1,2], [3,4], [5,6]][..], &[[7,8]][..]]);
     }
 
     #[test]

@@ -10,6 +10,7 @@ license = "MIT"
 edition = "2018"
 
 [features]
+nightly = []
 no-sparse-arrays = []
 
 # lua version selection, pick one
