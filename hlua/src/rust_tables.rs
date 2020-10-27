@@ -427,6 +427,26 @@ impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
     }
 }
 
+#[cfg(feature = "nightly")]
+impl<'lua, L, T, E, const C: usize> Push<L> for [T; C]
+    where L: AsMutLua<'lua>,
+          T: for<'a> Push<&'a mut L, Err = E> + Copy,
+{
+    type Err = E;
+
+    #[inline]
+    fn push_to_lua(self, lua: L) -> Result<PushGuard<L>, (E, L)> {
+        push_iter(lua, self.iter().copied())
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<'lua, L, T, E, const C: usize> PushOne<L> for [T; C]
+    where L: AsMutLua<'lua>,
+          T: for<'a> Push<&'a mut L, Err = E> + Copy
+{
+}
+
 impl<'a, 'lua, L, T, E> Push<L> for &'a [T]
     where L: AsMutLua<'lua>,
           T: Clone + for<'b> Push<&'b mut L, Err = E>
@@ -619,13 +639,14 @@ mod tests {
         let read: [f32; 3] = lua.get("v").unwrap();
         assert_eq!(read, orig);
     }
+    
 
     #[test]
     #[cfg(feature = "nightly")]
     fn reading_array_as_arg_works() {
         let mut lua = Lua::new();
 
-        lua.set("fn", crate::function1(|array: [u32; 2]| { }));
+        lua.set("fn", crate::function1(|_array: [u32; 2]| { }));
         assert_ne!(lua.get::<AnyLuaValue, _>("fn"), None);
     }
 
@@ -701,6 +722,20 @@ mod tests {
         
         let read: Vec<[u32; 4]> = lua.get("v").unwrap();
         assert_eq!(read, [[1, 2, 3, 4], [5, 6, 7, 8]]);
+    }
+
+    
+    #[test]
+    #[cfg(feature = "nightly")]
+    fn writing_array_works() {
+        let mut lua = Lua::new();
+
+        let orig: [f64; 3] = [1., 2., 3.];
+
+        lua.set("v", orig);
+
+        let read: [f64; 3] = lua.get("v").unwrap();
+        assert_eq!(read, orig);
     }
 
     #[test]
