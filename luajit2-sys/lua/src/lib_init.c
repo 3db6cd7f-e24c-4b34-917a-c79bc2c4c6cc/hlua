@@ -16,16 +16,36 @@
 #include "lj_arch.h"
 
 static const luaL_Reg lj_lib_load[] = {
+#ifndef WB_DISABLE_LIB_BASE
   { "",			luaopen_base },
+#endif
+#ifndef WB_DISABLE_LIB_PACKAGE
   { LUA_LOADLIBNAME,	luaopen_package },
+#endif
+#ifndef WB_DISABLE_LIB_TABLE
   { LUA_TABLIBNAME,	luaopen_table },
+#endif
+#ifndef WB_DISABLE_LIB_IO
   { LUA_IOLIBNAME,	luaopen_io },
+#endif
+#ifndef WB_DISABLE_LIB_OS
   { LUA_OSLIBNAME,	luaopen_os },
+#endif
+#ifndef WB_DISABLE_LIB_STRING
   { LUA_STRLIBNAME,	luaopen_string },
+#endif
+#ifndef WB_DISABLE_LIB_MATH
   { LUA_MATHLIBNAME,	luaopen_math },
+#endif
+#ifndef WB_DISABLE_LIB_DEBUG
   { LUA_DBLIBNAME,	luaopen_debug },
+#endif
+#ifndef WB_DISABLE_LIB_BIT
   { LUA_BITLIBNAME,	luaopen_bit },
+#endif
+#ifndef WB_DISABLE_LIB_JIT
   { LUA_JITLIBNAME,	luaopen_jit },
+#endif
   { NULL,		NULL }
 };
 

@@ -371,6 +371,7 @@ static int luaopen_table_clear(lua_State *L)
 }
 
 /* ------------------------------------------------------------------------ */
+#ifndef WB_DISABLE_LIB_TABLE
 
 #include "lj_libdef.h"
 
@@ -390,3 +391,4 @@ LUALIB_API int luaopen_table(lua_State *L)
   return 1;
 }
 
+#endif

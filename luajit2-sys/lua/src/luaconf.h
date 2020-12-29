@@ -149,4 +149,18 @@
 #define luai_apicheck(L, o)	{ (void)L; }
 #endif
 
+/* WB Feature toggles */
+
+//#define WB_DISABLE_DYLIBS
+//#define WB_DISABLE_LIB_BASE
+//#define WB_DISABLE_LIB_PACKAGE
+//#define WB_DISABLE_LIB_TABLE
+//#define WB_DISABLE_LIB_IO
+//#define WB_DISABLE_LIB_OS
+//#define WB_DISABLE_LIB_STRING
+//#define WB_DISABLE_LIB_MATH
+//#define WB_DISABLE_LIB_DEBUG
+//#define WB_DISABLE_LIB_BIT
+//#define WB_DISABLE_LIB_JIT
+
 #endif

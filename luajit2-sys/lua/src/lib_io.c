@@ -531,6 +531,8 @@ static GCobj *io_std_new(lua_State *L, FILE *fp, const char *name)
   return obj2gco(ud);
 }
 
+#ifndef WB_DISABLE_LIB_IO
+
 LUALIB_API int luaopen_io(lua_State *L)
 {
   LJ_LIB_REG(L, NULL, io_method);
@@ -543,3 +545,4 @@ LUALIB_API int luaopen_io(lua_State *L)
   return 1;
 }
 
+#endif

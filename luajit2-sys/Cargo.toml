@@ -40,7 +40,6 @@ disable_jit = []
 
 # Disable the jit.util table.
 disable_jitutil = []
-
 # Disable the jit.profile table.
 disable_profile = []
 
@@ -144,9 +143,34 @@ use_apicheck = []
 # everything. Use only if you suspect a problem with LuaJIT itself.
 use_assert = []
 
+# Disables the ability to dynamically load libraries from Lua
+disable_dylibs = []
+
+# Disables the base library
+disable_lib_base = []
+# Disables the package library
+disable_lib_package = []
+# Disables the table library
+disable_lib_table = []
+# Disables the io library
+disable_lib_io = []
+# Disables the os library
+disable_lib_os = []
+# Disables the string library
+disable_lib_string = []
+# Disables the math library
+disable_lib_math = []
+# Disables the debug library
+disable_lib_debug = []
+# Disables the bit library
+disable_lib_bit = []
+# Disables the jit library
+disable_lib_jit = []
+
 [dependencies]
-libc = "0.2"
+libc = "^0.2"
 
 [build-dependencies]
-cc = "1.0.40"
-fs_extra = "1.1.0"
+bindgen = "^0.56"
+cc = "^1.0"
+fs_extra = "^1.1"

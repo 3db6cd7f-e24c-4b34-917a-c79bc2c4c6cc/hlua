@@ -32,7 +32,7 @@
 #define SYMPREFIX_CF		"luaopen_%s"
 #define SYMPREFIX_BC		"luaJIT_BC_%s"
 
-#if LJ_TARGET_DLOPEN
+#if !defined(WB_DISABLE_DYLIBS) && LJ_TARGET_DLOPEN
 
 #include <dlfcn.h>
 
@@ -65,7 +65,7 @@ static const char *ll_bcsym(void *lib, const char *sym)
   return (const char *)dlsym(lib, sym);
 }
 
-#elif LJ_TARGET_WINDOWS
+#elif !defined(WB_DISABLE_DYLIBS) && LJ_TARGET_WINDOWS
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -590,6 +590,8 @@ static const lua_CFunction package_loaders[] =
   NULL
 };
 
+#ifndef WB_DISABLE_LIB_PACKAGE
+
 LUALIB_API int luaopen_package(lua_State *L)
 {
   int i;
@@ -626,3 +628,4 @@ LUALIB_API int luaopen_package(lua_State *L)
   return 1;
 }
 
+#endif

@@ -396,6 +396,8 @@ LJLIB_CF(debug_traceback)
 
 /* ------------------------------------------------------------------------ */
 
+#ifndef WB_DISABLE_LIB_DEBUG
+
 #include "lj_libdef.h"
 
 LUALIB_API int luaopen_debug(lua_State *L)
@@ -404,3 +406,4 @@ LUALIB_API int luaopen_debug(lua_State *L)
   return 1;
 }
 
+#endif

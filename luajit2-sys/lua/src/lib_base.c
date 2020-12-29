@@ -727,6 +727,8 @@ static int luaopen_thread_exdata2(lua_State *L)
 }
 #endif
 
+#ifndef WB_DISABLE_LIB_BASE
+
 LUALIB_API int luaopen_base(lua_State *L)
 {
   /* NOBARRIER: Table and value are the same. */
@@ -745,3 +747,4 @@ LUALIB_API int luaopen_base(lua_State *L)
   return 2;
 }
 
+#endif

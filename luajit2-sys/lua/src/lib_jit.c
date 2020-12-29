@@ -796,6 +796,8 @@ static void jit_init(lua_State *L)
 }
 #endif
 
+#ifndef WB_DISABLE_LIB_JIT
+
 LUALIB_API int luaopen_jit(lua_State *L)
 {
 #if LJ_HASJIT
@@ -820,3 +822,4 @@ LUALIB_API int luaopen_jit(lua_State *L)
   return 1;
 }
 
+#endif

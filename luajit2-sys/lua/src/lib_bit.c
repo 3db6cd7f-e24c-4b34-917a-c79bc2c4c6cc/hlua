@@ -170,6 +170,8 @@ LJLIB_CF(bit_tohex)		LJLIB_REC(.)
 
 /* ------------------------------------------------------------------------ */
 
+#ifndef WB_DISABLE_LIB_BIT
+
 #include "lj_libdef.h"
 
 LUALIB_API int luaopen_bit(lua_State *L)
@@ -178,3 +180,4 @@ LUALIB_API int luaopen_bit(lua_State *L)
   return 1;
 }
 
+#endif

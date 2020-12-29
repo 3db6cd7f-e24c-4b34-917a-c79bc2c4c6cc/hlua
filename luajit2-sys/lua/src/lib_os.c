@@ -283,6 +283,8 @@ LJLIB_CF(os_setlocale)
 
 /* ------------------------------------------------------------------------ */
 
+#ifndef WB_DISABLE_LIB_OS
+
 #include "lj_libdef.h"
 
 LUALIB_API int luaopen_os(lua_State *L)
@@ -291,3 +293,4 @@ LUALIB_API int luaopen_os(lua_State *L)
   return 1;
 }
 
+#endif

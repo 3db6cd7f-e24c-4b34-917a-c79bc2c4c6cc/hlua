@@ -729,6 +729,7 @@ again:
 }
 
 /* ------------------------------------------------------------------------ */
+#ifndef WB_DISABLE_LIB_STRING
 
 #include "lj_libdef.h"
 
@@ -746,3 +747,4 @@ LUALIB_API int luaopen_string(lua_State *L)
   return 1;
 }
 
+#endif

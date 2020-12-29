@@ -189,6 +189,8 @@ LJLIB_CF(math_randomseed)
 
 /* ------------------------------------------------------------------------ */
 
+#ifndef WB_DISABLE_LIB_MATH
+
 #include "lj_libdef.h"
 
 LUALIB_API int luaopen_math(lua_State *L)
@@ -199,3 +201,4 @@ LUALIB_API int luaopen_math(lua_State *L)
   return 1;
 }
 
+#endif

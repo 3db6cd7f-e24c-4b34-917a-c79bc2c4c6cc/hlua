@@ -1,4 +1,4 @@
-#include "lua.h"
-#include "lualib.h"
-#include "lauxlib.h"
-#include "luajit.h"
+#include "lua/src/lua.h"
+#include "lua/src/lualib.h"
+#include "lua/src/lauxlib.h"
+#include "lua/src/luajit.h"
