@@ -444,29 +444,70 @@ mod tests {
     }
 
     #[test]
-    fn read_extreme_numbers() {
+    fn validate_extreme_numbers() {
         let mut lua = Lua::new();
+        lua.openlibs();
 
         macro_rules! validate_extremes {
-            ($t:ident) => {
-                lua.set("min", $t::MIN);
-                lua.set("max", $t::MAX);
+            ($validate_in_lua:expr, $t:ident) => {{
+                type T = $t;
+                const MIN: T = T::MIN as T;
+                const MAX: T = T::MAX as T;
+
+                lua.set("min_v", MIN);
+                lua.set("max_v", MAX);
+
+                assert_eq!(lua.get::<T, _>("min_v").expect("1"), MIN, "min invalid (roundtrip)");
+                assert_eq!(lua.get::<T, _>("max_v").expect("2"), MAX, "max invalid (roundtrip)");
                 
-                assert_eq!(lua.get::<$t, _>("min").unwrap(), $t::MIN, "min invalid");
-                assert_eq!(lua.get::<$t, _>("max").unwrap(), $t::MAX, "max invalid");
-            }
+                lua.set("min_fn_ret", crate::function0(|| -> T { MIN }));
+                lua.set("max_fn_ret", crate::function0(|| -> T { MAX }));
+                
+                lua.set("min_fn_arg", crate::function1(|x: T| -> bool { x == MIN }));
+                lua.set("max_fn_arg", crate::function1(|x: T| -> bool { x == MAX }));
+
+                assert_eq!(lua.execute::<T>("return min_fn_ret()").expect("3"), MIN, "min invalid (func return to lua)");
+                assert_eq!(lua.execute::<T>("return max_fn_ret()").expect("4"), MAX, "max invalid (func return to lua)");
+
+                assert!(lua.execute::<bool>("return min_fn_arg(min_v)").expect("5"), "min invalid (func arg from lua)");
+                assert!(lua.execute::<bool>("return max_fn_arg(max_v)").expect("6"), "max invalid (func arg from lua)");
+
+                if $validate_in_lua {
+                    assert_eq!(lua.execute::<f64>(&format!("return {}", MIN)).expect("7") as T, MIN, "min invalid (read from lua)");
+                    assert_eq!(lua.execute::<f64>(&format!("return {}", MAX)).expect("8") as T, MAX, "max invalid (read from lua)");
+
+                    lua.execute::<()>(&format!("min_l = {}", MIN)).expect("9");
+                    lua.execute::<()>(&format!("max_l = {}", MAX)).expect("10");
+
+                    assert_eq!(
+                        lua.execute::<String>("return string.format('%f', min_l)").expect("15"),
+                        lua.execute::<String>("return string.format('%f', min_v)").expect("15"),
+                    "min invalid (string in lua)");
+                    
+                    assert_eq!(
+                        lua.execute::<String>("return string.format('%.0f', max_l)").expect("15"),
+                        lua.execute::<String>("return string.format('%.0f', max_v)").expect("15"),
+                    "max invalid (string in lua)");
+
+                    assert!(lua.execute::<bool>("return min_l == min_fn_ret()").expect("13"), "min invalid (in lua, func return)");
+                    assert!(lua.execute::<bool>("return max_l == max_fn_ret()").expect("14"), "max invalid (in lua, func return)");
+
+                    assert_eq!(lua.execute::<String>(&format!("return string.format('%.0f', {})", MIN)).expect("15"), format!("{}", MIN), "min invalid (string in lua)");
+                    assert_eq!(lua.execute::<String>(&format!("return string.format('%.0f', {})", MAX)).expect("16"), format!("{}", MAX), "max invalid (string in lua)");    
+                }
+            }}
         }
 
-        validate_extremes!(i8);
-        validate_extremes!(i16);
-        validate_extremes!(i32);
-        
-        validate_extremes!(u8);
-        validate_extremes!(u16);
-        validate_extremes!(u32);
+        validate_extremes!(true, i8);
+        validate_extremes!(true, i16);
+        validate_extremes!(true, i32);
 
-        validate_extremes!(f32);
-        validate_extremes!(f64);
+        validate_extremes!(true, u8);
+        validate_extremes!(true, u16);
+        validate_extremes!(true, u32);
+
+        validate_extremes!(false, f32);
+        validate_extremes!(false, f64);
     }
 
     #[test]
