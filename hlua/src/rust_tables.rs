@@ -465,8 +465,9 @@ impl<'a, 'lua, L, T, E> PushOne<L> for &'a [T]
 {
 }
 
-impl<'lua, L> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue>
-    where L: AsMutLua<'lua>
+impl<'lua, L, S> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue, S>
+    where L: AsMutLua<'lua>,
+          S: std::hash::BuildHasher + Default,
 {
     // TODO: this should be implemented using the LuaTable API instead of raw Lua calls.
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
@@ -474,7 +475,7 @@ impl<'lua, L> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue>
         let raw_lua = me.as_mut_lua();
         unsafe { ffi::lua_pushnil(raw_lua.as_ptr()) };
         let index = index - 1;
-        let mut result = HashMap::new();
+        let mut result = HashMap::<_, _, S>::default();
 
         loop {
             if unsafe { ffi::lua_next(raw_lua.as_ptr(), index) } == 0 {
@@ -506,10 +507,11 @@ impl<'lua, L> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue>
 }
 
 // TODO: use an enum for the error to allow different error types for K and V
-impl<'lua, L, K, V, E> Push<L> for HashMap<K, V>
+impl<'lua, L, K, V, E, S> Push<L> for HashMap<K, V, S>
     where L: AsMutLua<'lua>,
           K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
-          V: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E>
+          V: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E>,
+          S: std::hash::BuildHasher,
 {
     type Err = E;
 
@@ -523,16 +525,18 @@ impl<'lua, L, K, V, E> Push<L> for HashMap<K, V>
     }
 }
 
-impl<'lua, L, K, V, E> PushOne<L> for HashMap<K, V>
+impl<'lua, L, K, V, E, S> PushOne<L> for HashMap<K, V, S>
     where L: AsMutLua<'lua>,
           K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
-          V: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E>
+          V: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E>,
+          S: std::hash::BuildHasher,
 {
 }
 
-impl<'lua, L, K, E> Push<L> for HashSet<K>
+impl<'lua, L, K, E, S> Push<L> for HashSet<K, S>
     where L: AsMutLua<'lua>,
-          K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash
+          K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
+          S: std::hash::BuildHasher,
 {
     type Err = E;
 
@@ -546,9 +550,10 @@ impl<'lua, L, K, E> Push<L> for HashSet<K>
     }
 }
 
-impl<'lua, L, K, E> PushOne<L> for HashSet<K>
+impl<'lua, L, K, E, S> PushOne<L> for HashSet<K, S>
     where L: AsMutLua<'lua>,
-          K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash
+          K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
+          S: std::hash::BuildHasher,
 {
 }
 
