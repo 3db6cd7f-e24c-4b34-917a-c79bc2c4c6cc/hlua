@@ -3,8 +3,7 @@
 #![allow(non_camel_case_types)]
 #![allow(clippy::missing_safety_doc)]
 
-#[allow(clippy::all)]
-mod ffi;
+#[allow(clippy::all)] mod ffi;
 pub use ffi::*;
 
 use core::ptr;

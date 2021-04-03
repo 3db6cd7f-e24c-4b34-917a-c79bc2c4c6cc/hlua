@@ -1,11 +1,6 @@
-use crate::AsLua;
-use crate::AsMutLua;
+use crate::{AsLua, AsMutLua};
 
-use crate::LuaRead;
-use crate::Push;
-use crate::PushGuard;
-use crate::PushOne;
-use crate::Void;
+use crate::{LuaRead, Push, PushGuard, PushOne, Void};
 
 macro_rules! tuple_impl {
     ($ty:ident) => (
@@ -131,15 +126,17 @@ impl From<TuplePushError<Void, Void>> for Void {
     }
 }
 
-
 #[test]
 fn no_stack_wrap() {
     let mut lua = crate::Lua::new();
 
-    lua.set("foo", crate::function3(|a: u32, b: Option<f32>, c: Option<f32>| {
-        a == 10 && b.is_none() && c.is_none()
-    }));
-    
+    lua.set(
+        "foo",
+        crate::function3(|a: u32, b: Option<f32>, c: Option<f32>| {
+            a == 10 && b.is_none() && c.is_none()
+        }),
+    );
+
     assert_eq!(lua.execute::<bool>("return foo(10,  20,  30)").unwrap(), false);
     assert_eq!(lua.execute::<bool>("return foo(10, nil, nil)").unwrap(), true);
     assert_eq!(lua.execute::<bool>("return foo(10, nil)").unwrap(), true);

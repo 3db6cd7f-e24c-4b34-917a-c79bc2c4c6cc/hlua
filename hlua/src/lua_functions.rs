@@ -1,20 +1,13 @@
-use std::error::Error;
-use std::fmt;
-use std::io::Cursor;
-use std::io::Error as IoError;
-use std::io::Read;
-use std::mem;
+use std::{
+    error::Error,
+    fmt,
+    io::{Cursor, Error as IoError, Read},
+    mem,
+};
 
-use crate::AsLua;
-use crate::AsMutLua;
+use crate::{AsLua, AsMutLua};
 
-use crate::LuaContext;
-use crate::LuaError;
-use crate::LuaRead;
-use crate::Push;
-use crate::PushGuard;
-use crate::PushOne;
-use crate::Void;
+use crate::{LuaContext, LuaError, LuaRead, Push, PushGuard, PushOne, Void};
 
 /// Wrapper around a `&str`. When pushed, the content will be parsed as Lua code and turned into a
 /// function.
@@ -39,7 +32,8 @@ use crate::Void;
 pub struct LuaCode<'a>(pub &'a str);
 
 impl<'lua, 'c, L> Push<L> for LuaCode<'c>
-    where L: AsMutLua<'lua>
+where
+    L: AsMutLua<'lua>,
 {
     type Err = LuaError;
 
@@ -76,8 +70,9 @@ impl<'lua, 'c, L> PushOne<L> for LuaCode<'c> where L: AsMutLua<'lua> {}
 pub struct LuaCodeFromReader<R>(pub R);
 
 impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
-    where L: AsMutLua<'lua>,
-          R: Read
+where
+    L: AsMutLua<'lua>,
+    R: Read,
 {
     type Err = LuaError;
 
@@ -90,26 +85,24 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
                 triggered_error: Option<IoError>,
             }
 
-            let mut read_data = ReadData {
-                reader: self.0,
-                buffer: mem::zeroed(),
-                triggered_error: None,
-            };
+            let mut read_data =
+                ReadData { reader: self.0, buffer: mem::zeroed(), triggered_error: None };
 
             extern "C" fn reader<R>(
                 _: *mut ffi::lua_State,
                 data: *mut libc::c_void,
                 size: *mut libc::size_t,
             ) -> *const libc::c_char
-                where R: Read
+            where
+                R: Read,
             {
                 unsafe {
-                    let data: *mut ReadData<R> = data as *mut _;
+                    let data: *mut ReadData<R> = data.cast();
                     let data: &mut ReadData<R> = &mut *data;
 
                     if data.triggered_error.is_some() {
                         (*size) = 0;
-                        return data.buffer.as_ptr() as *const libc::c_char;
+                        return data.buffer.as_ptr().cast::<libc::c_char>();
                     }
 
                     match data.reader.read(&mut data.buffer) {
@@ -117,10 +110,10 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
                         Err(e) => {
                             (*size) = 0;
                             data.triggered_error = Some(e);
-                        }
+                        },
                     };
 
-                    data.buffer.as_ptr() as *const libc::c_char
+                    data.buffer.as_ptr().cast::<libc::c_char>()
                 }
             }
 
@@ -129,20 +122,12 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
                 let code = ffi::lua_load(
                     raw_lua.as_ptr(),
                     Some(reader::<R>),
-                    &mut read_data as *mut ReadData<_> as *mut libc::c_void,
-                    b"chunk\0".as_ptr() as *const _,
-
+                    (&mut read_data as *mut ReadData<_>).cast(),
+                    b"chunk\0".as_ptr().cast(),
                     #[cfg(any(feature = "_luaapi_52", feature = "_luaapi_54"))]
                     std::ptr::null(),
                 );
-                (
-                    code,
-                    PushGuard {
-                        lua,
-                        size: 1,
-                        raw_lua,
-                    },
-                )
+                (code, PushGuard { lua, size: 1, raw_lua })
             };
 
             if read_data.triggered_error.is_some() {
@@ -172,8 +157,9 @@ impl<'lua, L, R> Push<L> for LuaCodeFromReader<R>
 }
 
 impl<'lua, L, R> PushOne<L> for LuaCodeFromReader<R>
-    where L: AsMutLua<'lua>,
-          R: Read
+where
+    L: AsMutLua<'lua>,
+    R: Read,
 {
 }
 
@@ -201,7 +187,8 @@ pub struct LuaFunction<L> {
 }
 
 unsafe impl<'lua, L> AsLua<'lua> for LuaFunction<L>
-    where L: AsLua<'lua>
+where
+    L: AsLua<'lua>,
 {
     #[inline]
     fn as_lua(&self) -> LuaContext {
@@ -210,7 +197,8 @@ unsafe impl<'lua, L> AsLua<'lua> for LuaFunction<L>
 }
 
 unsafe impl<'lua, L> AsMutLua<'lua> for LuaFunction<L>
-    where L: AsMutLua<'lua>
+where
+    L: AsMutLua<'lua>,
 {
     #[inline]
     fn as_mut_lua(&mut self) -> LuaContext {
@@ -219,7 +207,8 @@ unsafe impl<'lua, L> AsMutLua<'lua> for LuaFunction<L>
 }
 
 impl<'lua, L> LuaFunction<L>
-    where L: AsMutLua<'lua>
+where
+    L: AsMutLua<'lua>,
 {
     /// Calls the function. Doesn't allow passing parameters.
     ///
@@ -231,7 +220,8 @@ impl<'lua, L> LuaFunction<L>
     /// > **Note**: In order to pass parameters, see `call_with_args` instead.
     #[inline]
     pub fn call<'a, V>(&'a mut self) -> Result<V, LuaError>
-        where V: LuaRead<PushGuard<&'a mut L>>
+    where
+        V: LuaRead<PushGuard<&'a mut L>>,
     {
         match self.call_with_args(()) {
             Ok(v) => Ok(v),
@@ -265,8 +255,9 @@ impl<'lua, L> LuaFunction<L>
     /// ```
     #[inline]
     pub fn call_with_args<'a, V, A, E>(&'a mut self, args: A) -> Result<V, LuaFunctionCallError<E>>
-        where A: for<'r> Push<&'r mut LuaFunction<L>, Err = E>,
-              V: LuaRead<PushGuard<&'a mut L>>
+    where
+        A: for<'r> Push<&'r mut LuaFunction<L>, Err = E>,
+        V: LuaRead<PushGuard<&'a mut L>>,
     {
         // calling pcall pops the parameters and pushes output
         let (pcall_return_value, pushed_value) = unsafe {
@@ -278,11 +269,7 @@ impl<'lua, L> LuaFunction<L>
                 Err((err, _)) => return Err(LuaFunctionCallError::PushError(err)),
             };
             let pcall_return_value = ffi::lua_pcall(raw_lua.as_ptr(), num_pushed, 1, 0); // TODO: num ret values
-            let guard = PushGuard {
-                lua: &mut self.variable,
-                size: 1,
-                raw_lua,
-            };
+            let guard = PushGuard { lua: &mut self.variable, size: 1, raw_lua };
 
             (pcall_return_value, guard)
         };
@@ -298,7 +285,7 @@ impl<'lua, L> LuaFunction<L>
                     .ok()
                     .expect("can't find error message at the top of the Lua stack");
                 Err(LuaFunctionCallError::LuaError(LuaError::ExecutionError(error_msg)))
-            }
+            },
             _ => panic!("Unknown error code returned by lua_pcall: {}", pcall_return_value),
         }
     }
@@ -321,7 +308,8 @@ impl<'lua, L> LuaFunction<L>
     /// ```
     #[inline]
     pub fn load_from_reader<R>(lua: L, code: R) -> Result<LuaFunction<PushGuard<L>>, LuaError>
-        where R: Read
+    where
+        R: Read,
     {
         match LuaCodeFromReader(code).push_to_lua(lua) {
             Ok(pushed) => Ok(LuaFunction { variable: pushed }),
@@ -352,14 +340,15 @@ pub enum LuaFunctionCallError<E> {
 }
 
 impl<E> fmt::Display for LuaFunctionCallError<E>
-    where E: fmt::Display
+where
+    E: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             LuaFunctionCallError::LuaError(ref lua_error) => write!(f, "Lua error: {}", lua_error),
             LuaFunctionCallError::PushError(ref err) => {
                 write!(f, "Error while pushing arguments: {}", err)
-            }
+            },
         }
     }
 }
@@ -382,7 +371,8 @@ impl From<LuaFunctionCallError<Void>> for LuaError {
 }
 
 impl<E> Error for LuaFunctionCallError<E>
-    where E: Error
+where
+    E: Error,
 {
     fn description(&self) -> &str {
         match *self {
@@ -423,7 +413,8 @@ impl Error for LuaFunctionCallError<Void> {
 // }
 
 impl<'lua, L> LuaRead<L> for LuaFunction<L>
-    where L: AsMutLua<'lua>
+where
+    L: AsMutLua<'lua>,
 {
     #[inline]
     fn lua_read_at_position(mut lua: L, index: i32) -> Result<LuaFunction<L>, L> {
@@ -438,15 +429,12 @@ impl<'lua, L> LuaRead<L> for LuaFunction<L>
 
 #[cfg(test)]
 mod tests {
-    use crate::Lua;
-    use crate::LuaError;
-    use crate::LuaFunction;
-    use crate::LuaFunctionCallError;
-    use crate::LuaTable;
-    use crate::Void;
+    use crate::{Lua, LuaError, LuaFunction, LuaFunctionCallError, LuaTable, Void};
 
-    use std::error::Error;
-    use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read};
+    use std::{
+        error::Error,
+        io::{Error as IoError, ErrorKind as IoErrorKind, Read},
+    };
 
     #[test]
     fn basic() {

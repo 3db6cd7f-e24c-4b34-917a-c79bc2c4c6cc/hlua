@@ -1,18 +1,14 @@
-use std::any::{Any, TypeId};
-use std::marker::PhantomData;
-use std::mem;
-use std::ops::{Deref, DerefMut};
-use std::ptr;
+use std::{
+    any::{Any, TypeId},
+    marker::PhantomData,
+    mem,
+    ops::{Deref, DerefMut},
+    ptr,
+};
 
-use crate::AsLua;
-use crate::AsMutLua;
-use crate::LuaContext;
-use crate::LuaRead;
-use crate::Push;
-use crate::PushGuard;
+use crate::{AsLua, AsMutLua, LuaContext, LuaRead, Push, PushGuard};
 
-use crate::InsideCallback;
-use crate::LuaTable;
+use crate::{InsideCallback, LuaTable};
 
 struct RawUserdata<T> {
     typeid: TypeId,
@@ -60,9 +56,10 @@ extern "C" fn destructor_wrapper<T>(lua: *mut ffi::lua_State) -> libc::c_int {
 ///
 #[inline]
 pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGuard<L>
-    where F: FnOnce(LuaTable<&mut PushGuard<&mut L>>),
-          L: AsMutLua<'lua>,
-          T: Send + 'static + Any
+where
+    F: FnOnce(LuaTable<&mut PushGuard<&mut L>>),
+    L: AsMutLua<'lua>,
+    T: Send + 'static + Any,
 {
     let raw_lua = lua.as_mut_lua();
     unsafe {
@@ -72,7 +69,7 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
 
         let lua_data = {
             let size = mem::size_of::<RawUserdata<T>>();
-            ffi::lua_newuserdata(raw_lua.as_ptr(), size as libc::size_t) as *mut RawUserdata<T>
+            ffi::lua_newuserdata(raw_lua.as_ptr(), size as libc::size_t).cast::<RawUserdata<T>>()
         };
 
         // We check the alignment requirements.
@@ -131,11 +128,7 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
 
             // Calling the metatable closure.
             {
-                let mut guard = PushGuard {
-                    lua: &mut lua,
-                    size: 1,
-                    raw_lua,
-                };
+                let mut guard = PushGuard { lua: &mut lua, size: 1, raw_lua };
                 metatable(LuaRead::lua_read(&mut guard).ok().unwrap());
                 guard.forget();
             }
@@ -147,11 +140,7 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
         //| -1 userdata (data: T)
     }
 
-    PushGuard {
-        lua,
-        size: 1,
-        raw_lua,
-    }
+    PushGuard { lua, size: 1, raw_lua }
 }
 
 ///
@@ -160,7 +149,8 @@ pub fn read_userdata<'t, 'c, T>(
     lua: &'c mut InsideCallback,
     index: i32,
 ) -> Result<&'t mut T, &'c mut InsideCallback>
-    where T: 'static + Any
+where
+    T: 'static + Any,
 {
     unsafe {
         let ptr = ffi::lua_touserdata(lua.as_lua().as_ptr(), index);
@@ -180,19 +170,18 @@ pub struct UserdataOnStack<T, L> {
 }
 
 impl<'lua, T, L> LuaRead<L> for UserdataOnStack<T, L>
-    where L: AsMutLua<'lua>,
-          T: 'lua + Any
+where
+    L: AsMutLua<'lua>,
+    T: 'lua + Any,
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<UserdataOnStack<T, L>, L> {
         unsafe {
             let ptr = ffi::lua_touserdata(lua.as_lua().as_ptr(), index);
             match ptr.cast::<RawUserdata<T>>().as_mut() {
-                Some(ud) if ud.typeid == TypeId::of::<T>() => Ok(UserdataOnStack {
-                    variable: lua,
-                    index,
-                    marker: PhantomData,
-                }),
+                Some(ud) if ud.typeid == TypeId::of::<T>() => {
+                    Ok(UserdataOnStack { variable: lua, index, marker: PhantomData })
+                },
                 _ => Err(lua),
             }
         }
@@ -200,8 +189,9 @@ impl<'lua, T, L> LuaRead<L> for UserdataOnStack<T, L>
 }
 
 unsafe impl<'lua, T, L> AsLua<'lua> for UserdataOnStack<T, L>
-    where L: AsLua<'lua>,
-          T: 'lua + Any
+where
+    L: AsLua<'lua>,
+    T: 'lua + Any,
 {
     #[inline]
     fn as_lua(&self) -> LuaContext {
@@ -210,8 +200,9 @@ unsafe impl<'lua, T, L> AsLua<'lua> for UserdataOnStack<T, L>
 }
 
 unsafe impl<'lua, T, L> AsMutLua<'lua> for UserdataOnStack<T, L>
-    where L: AsMutLua<'lua>,
-          T: 'lua + Any
+where
+    L: AsMutLua<'lua>,
+    T: 'lua + Any,
 {
     #[inline]
     fn as_mut_lua(&mut self) -> LuaContext {
@@ -220,8 +211,9 @@ unsafe impl<'lua, T, L> AsMutLua<'lua> for UserdataOnStack<T, L>
 }
 
 impl<'lua, T, L> Deref for UserdataOnStack<T, L>
-    where L: AsLua<'lua>,
-          T: 'lua + Any
+where
+    L: AsLua<'lua>,
+    T: 'lua + Any,
 {
     type Target = T;
 
@@ -235,8 +227,9 @@ impl<'lua, T, L> Deref for UserdataOnStack<T, L>
 }
 
 impl<'lua, T, L> DerefMut for UserdataOnStack<T, L>
-    where L: AsMutLua<'lua>,
-          T: 'lua + Any
+where
+    L: AsMutLua<'lua>,
+    T: 'lua + Any,
 {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {

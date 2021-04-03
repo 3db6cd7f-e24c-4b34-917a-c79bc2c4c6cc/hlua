@@ -1,7 +1,9 @@
-use fs_extra::dir;
-use fs_extra::dir::CopyOptions;
-use std::process::{Command, Stdio};
-use std::{env, path::PathBuf};
+use fs_extra::{dir, dir::CopyOptions};
+use std::{
+    env,
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
 #[rustfmt::skip]
 fn get_defines() -> Vec<&'static str> {
@@ -113,22 +115,18 @@ fn generate_bindings(header_name: &str) {
     let bindings = bindgen::Builder::default()
         .whitelist_var("LUA.*")
         .whitelist_var("LUAJIT.*")
-
         .whitelist_type("lua_.*")
         .whitelist_type("luaL_.*")
-
         .whitelist_function("lua_.*")
         .whitelist_function("luaL_.*")
         .whitelist_function("luaJIT.*")
         .whitelist_function("luaopen.*")
-
         .ctypes_prefix("libc")
         .use_core()
         .impl_debug(true)
         .size_t_is_usize(true)
         .default_macro_constant_type(bindgen::MacroTypeVariation::Signed)
         .header(header_name)
-
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .generate()
         .expect("Unable to generate bindings");
@@ -143,7 +141,7 @@ fn build_luajit(luajit_dir: &str, out_dir: &str, src_dir: &str) -> &'static str 
     const LIB_NAME: &str = "lua51";
     let lib_path = format!("{}/{}.lib", &src_dir, LIB_NAME);
     dbg!(&lib_path);
-    if !std::fs::metadata(&lib_path).is_ok() {
+    if std::fs::metadata(&lib_path).is_err() {
         let target = env::var("TARGET").unwrap();
         let cl_exe: cc::Tool =
             cc::windows_registry::find_tool(&target, "cl.exe").expect("cl.exe not found");
@@ -174,12 +172,7 @@ fn build_luajit(luajit_dir: &str, out_dir: &str, src_dir: &str) -> &'static str 
 
         let mut child = buildcmd.spawn().expect("failed to run msvcbuild.bat");
 
-        if !child
-            .wait()
-            .map(|status| status.success())
-            .map_err(|_| false)
-            .unwrap_or(false)
-        {
+        if !child.wait().map(|status| status.success()).map_err(|_| false).unwrap_or(false) {
             panic!("Failed to build luajit");
         }
     }
@@ -211,12 +204,7 @@ fn build_luajit(luajit_dir: &str, out_dir: &str, src_dir: &str) -> &'static str 
 
         let mut child = buildcmd.spawn().expect("failed to run make");
 
-        if !child
-            .wait()
-            .map(|status| status.success())
-            .map_err(|_| false)
-            .unwrap_or(false)
-        {
+        if !child.wait().map(|status| status.success()).map_err(|_| false).unwrap_or(false) {
             panic!("Failed to build luajit");
         }
     }

@@ -2,8 +2,7 @@ extern crate hlua;
 
 use hlua::AnyLuaValue;
 
-use std::io::prelude::*;
-use std::io::{stdin, stdout};
+use std::io::{prelude::*, stdin, stdout};
 
 fn main() {
     let mut lua = hlua::Lua::new();

@@ -144,20 +144,14 @@ pub unsafe fn lua_open() -> *mut lua_State {
 
 /// `lua_pushvalue(L, LUA_REGISTRYINDEX)`
 #[inline]
-#[deprecated(
-    since = "Lua 5.1",
-    note = "replace with `lua_pushvalue(L, LUA_REGISTRYINDEX)`"
-)]
+#[deprecated(since = "Lua 5.1", note = "replace with `lua_pushvalue(L, LUA_REGISTRYINDEX)`")]
 pub unsafe fn lua_getregistry(L: *mut lua_State) {
     lua_pushvalue(L, LUA_REGISTRYINDEX)
 }
 
 /// `lua_gc(L, LUA_GCCOUNT as _, 0)`
 #[inline]
-#[deprecated(
-    since = "Lua 5.1",
-    note = "replace with `lua_gc(L, LUA_GCCOUNT as _, 0)`"
-)]
+#[deprecated(since = "Lua 5.1", note = "replace with `lua_gc(L, LUA_GCCOUNT as _, 0)`")]
 pub unsafe fn lua_getgccount(L: *mut lua_State) -> libc::c_int {
     lua_gc(L, LUA_GCCOUNT as _, 0)
 }

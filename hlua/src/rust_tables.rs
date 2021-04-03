@@ -1,21 +1,19 @@
 use crate::any::{AnyHashableLuaValue, AnyLuaValue};
 
-use crate::AsMutLua;
-use crate::LuaRead;
-use crate::Push;
-use crate::PushGuard;
-use crate::PushOne;
-use crate::TuplePushError;
+use crate::{AsMutLua, LuaRead, Push, PushGuard, PushOne, TuplePushError};
 
-use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
-use std::iter;
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+    iter,
+};
 
 #[inline]
 fn push_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, (E, L)>
-    where L: AsMutLua<'lua>,
-          V: for<'b> Push<&'b mut L, Err = E>,
-          I: Iterator<Item = V>
+where
+    L: AsMutLua<'lua>,
+    V: for<'b> Push<&'b mut L, Err = E>,
+    I: Iterator<Item = V>,
 {
     let raw_lua = lua.as_mut_lua();
 
@@ -36,18 +34,15 @@ fn push_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, 
         }
     }
 
-    Ok(PushGuard {
-        lua,
-        size: 1,
-        raw_lua,
-    })
+    Ok(PushGuard { lua, size: 1, raw_lua })
 }
 
 #[inline]
 fn push_rec_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, (E, L)>
-    where L: AsMutLua<'lua>,
-          V: for<'a> Push<&'a mut L, Err = E>,
-          I: Iterator<Item = V>
+where
+    L: AsMutLua<'lua>,
+    V: for<'a> Push<&'a mut L, Err = E>,
+    I: Iterator<Item = V>,
 {
     let raw_lua = lua.as_mut_lua();
 
@@ -69,27 +64,30 @@ fn push_rec_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<
         }
     }
 
-    Ok(PushGuard {
-        lua,
-        size: 1,
-        raw_lua,
-    })
+    Ok(PushGuard { lua, size: 1, raw_lua })
 }
 
 pub struct IntoIteratorWrapper<I: IntoIterator>(pub I);
 impl<I: IntoIterator> From<I> for IntoIteratorWrapper<I> {
-    fn from(iter: I) -> Self { IntoIteratorWrapper(iter) }
+    fn from(iter: I) -> Self {
+        IntoIteratorWrapper(iter)
+    }
 }
-impl<V, T: Iterator<Item = V>, I: IntoIterator<Item = V, IntoIter = T>> IntoIterator for IntoIteratorWrapper<I> {
+impl<V, T: Iterator<Item = V>, I: IntoIterator<Item = V, IntoIter = T>> IntoIterator
+    for IntoIteratorWrapper<I>
+{
     type Item = V;
     type IntoIter = T;
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter { self.0.into_iter() }
+    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
+        self.0.into_iter()
+    }
 }
 
 impl<'lua, L, T, E, I> Push<L> for IntoIteratorWrapper<I>
-    where L: AsMutLua<'lua>,
-          I: IntoIterator<Item = T>,
-          T: for<'a> Push<&'a mut L, Err = E>,
+where
+    L: AsMutLua<'lua>,
+    I: IntoIterator<Item = T>,
+    T: for<'a> Push<&'a mut L, Err = E>,
 {
     type Err = E;
     #[inline]
@@ -99,15 +97,17 @@ impl<'lua, L, T, E, I> Push<L> for IntoIteratorWrapper<I>
 }
 
 impl<'lua, L, T, E, I> PushOne<L> for IntoIteratorWrapper<I>
-    where L: AsMutLua<'lua>,
-          I: IntoIterator<Item = T>,
-          T: for<'a> Push<&'a mut L, Err = E>,
+where
+    L: AsMutLua<'lua>,
+    I: IntoIterator<Item = T>,
+    T: for<'a> Push<&'a mut L, Err = E>,
 {
 }
 
 impl<'lua, L, T, E> Push<L> for Vec<T>
-    where L: AsMutLua<'lua>,
-          T: for<'a> Push<&'a mut L, Err = E>
+where
+    L: AsMutLua<'lua>,
+    T: for<'a> Push<&'a mut L, Err = E>,
 {
     type Err = E;
 
@@ -118,28 +118,34 @@ impl<'lua, L, T, E> Push<L> for Vec<T>
 }
 
 impl<'lua, L, T, E> PushOne<L> for Vec<T>
-    where L: AsMutLua<'lua>,
-          T: for<'a> Push<&'a mut L, Err = E>
+where
+    L: AsMutLua<'lua>,
+    T: for<'a> Push<&'a mut L, Err = E>,
 {
 }
 
 #[cfg(not(feature = "no-sparse-arrays"))]
 impl<'lua, L, T> LuaRead<L> for Vec<T>
-    where L: AsMutLua<'lua>,
-          T: for<'a> LuaRead<&'a mut L>,
+where
+    L: AsMutLua<'lua>,
+    T: for<'a> LuaRead<&'a mut L>,
 {
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
         let mut me = lua;
         let raw_lua = me.as_mut_lua().as_ptr();
 
-        let len = match true {
-            #[cfg(feature = "_luaapi_51")] true => unsafe { ffi::lua_objlen(raw_lua, index) },
-            #[cfg(feature = "_luaapi_52")] true => unsafe { ffi::lua_rawlen(raw_lua, index) },
-            #[cfg(feature = "_luaapi_54")] true => unsafe { ffi::lua_rawlen(raw_lua, index) },
-            false => unreachable!(),
+        let len = match () {
+            #[cfg(feature = "_luaapi_51")]
+            () => unsafe { ffi::lua_objlen(raw_lua, index) },
+            #[cfg(feature = "_luaapi_52")]
+            () => unsafe { ffi::lua_rawlen(raw_lua, index) },
+            #[cfg(feature = "_luaapi_54")]
+            () => unsafe { ffi::lua_rawlen(raw_lua, index) },
         };
 
-        unsafe { ffi::lua_pushnil(raw_lua); }
+        unsafe {
+            ffi::lua_pushnil(raw_lua);
+        }
         let mut vec = Vec::<T>::with_capacity(len as _);
 
         for n in 1..=len as _ {
@@ -176,8 +182,9 @@ impl<'lua, L, T> LuaRead<L> for Vec<T>
 
 #[cfg(feature = "no-sparse-arrays")]
 impl<'lua, L, T> LuaRead<L> for Vec<T>
-    where L: AsMutLua<'lua>,
-          T: for<'a> LuaRead<&'a mut L>,
+where
+    L: AsMutLua<'lua>,
+    T: for<'a> LuaRead<&'a mut L>,
 {
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
         use std::collections::BTreeMap;
@@ -204,7 +211,7 @@ impl<'lua, L, T> LuaRead<L> for Vec<T>
                         // Cleaning up after ourselves
                         unsafe { ffi::lua_pop(raw_lua, 2) };
                         return Err(me);
-                    }
+                    },
                     Some(k) => k,
                 }
             };
@@ -222,10 +229,8 @@ impl<'lua, L, T> LuaRead<L> for Vec<T>
             unsafe { ffi::lua_pop(raw_lua, 1) };
         }
 
-        let (maximum_key, minimum_key) = (
-            *dict.keys().max().unwrap_or(&1),
-            *dict.keys().min().unwrap_or(&1),
-        );
+        let (maximum_key, minimum_key) =
+            (*dict.keys().max().unwrap_or(&1), *dict.keys().min().unwrap_or(&1));
 
         if minimum_key != 1 {
             // Rust doesn't support sparse arrays or arrays with negative
@@ -259,8 +264,9 @@ impl<'lua, L, T> LuaRead<L> for Vec<T>
 #[cfg(feature = "nightly")]
 #[cfg(not(feature = "no-sparse-arrays"))]
 impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
-    where L: AsMutLua<'lua>,
-          T: for<'a> LuaRead<&'a mut L> + Copy,
+where
+    L: AsMutLua<'lua>,
+    T: for<'a> LuaRead<&'a mut L> + Copy,
 {
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
         use std::mem::MaybeUninit;
@@ -269,9 +275,12 @@ impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
         let raw_lua = me.as_mut_lua().as_ptr();
 
         let len = match true {
-            #[cfg(feature = "_luaapi_51")] true => unsafe { ffi::lua_objlen(raw_lua, index) },
-            #[cfg(feature = "_luaapi_52")] true => unsafe { ffi::lua_rawlen(raw_lua, index) },
-            #[cfg(feature = "_luaapi_54")] true => unsafe { ffi::lua_rawlen(raw_lua, index) },
+            #[cfg(feature = "_luaapi_51")]
+            true => unsafe { ffi::lua_objlen(raw_lua, index) },
+            #[cfg(feature = "_luaapi_52")]
+            true => unsafe { ffi::lua_rawlen(raw_lua, index) },
+            #[cfg(feature = "_luaapi_54")]
+            true => unsafe { ffi::lua_rawlen(raw_lua, index) },
             false => unreachable!(),
         } as usize;
 
@@ -281,7 +290,9 @@ impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
             return Err(me);
         }
 
-        unsafe { ffi::lua_pushnil(raw_lua); }
+        unsafe {
+            ffi::lua_pushnil(raw_lua);
+        }
         let mut arr: [MaybeUninit<T>; C] = unsafe { MaybeUninit::uninit().assume_init() };
 
         for n in 0..C as _ {
@@ -314,7 +325,7 @@ impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
         let out = unsafe {
             // Workaround since const generics currently can't be transmuted
             // Dangerous and not to be trusted, please replace as soon as the issue is resolved
-            // 
+            //
             // https://github.com/rust-blang/rust/issues/61956
 
             core::mem::transmute_copy(&arr)
@@ -328,12 +339,12 @@ impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
 #[cfg(feature = "nightly")]
 #[cfg(feature = "no-sparse-arrays")]
 impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
-    where L: AsMutLua<'lua>,
-          T: for<'a> LuaRead<&'a mut L> + Copy,
+where
+    L: AsMutLua<'lua>,
+    T: for<'a> LuaRead<&'a mut L> + Copy,
 {
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
-        use std::mem::MaybeUninit;
-        use std::collections::BTreeMap;
+        use std::{collections::BTreeMap, mem::MaybeUninit};
 
         // We need this as iteration order isn't guaranteed to match order of
         // keys, even if they're numeric
@@ -357,7 +368,7 @@ impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
                         // Cleaning up after ourselves
                         unsafe { ffi::lua_pop(raw_lua, 2) };
                         return Err(me);
-                    }
+                    },
                     Some(k) => k,
                 }
             };
@@ -375,10 +386,8 @@ impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
             unsafe { ffi::lua_pop(raw_lua, 1) };
         }
 
-        let (maximum_key, minimum_key) = (
-            *dict.keys().max().unwrap_or(&1),
-            *dict.keys().min().unwrap_or(&1),
-        );
+        let (maximum_key, minimum_key) =
+            (*dict.keys().max().unwrap_or(&1), *dict.keys().min().unwrap_or(&1));
 
         if minimum_key != 1 {
             // Rust doesn't support sparse arrays or arrays with negative
@@ -417,7 +426,7 @@ impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
         let result = unsafe {
             // Workaround since const generics currently can't be transmuted
             // Dangerous and not to be trusted, please replace as soon as the issue is resolved
-            // 
+            //
             // https://github.com/rust-lang/rust/issues/61956
 
             core::mem::transmute_copy(&result)
@@ -429,8 +438,9 @@ impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
 
 #[cfg(feature = "nightly")]
 impl<'lua, L, T, E, const C: usize> Push<L> for [T; C]
-    where L: AsMutLua<'lua>,
-          T: for<'a> Push<&'a mut L, Err = E> + Copy,
+where
+    L: AsMutLua<'lua>,
+    T: for<'a> Push<&'a mut L, Err = E> + Copy,
 {
     type Err = E;
 
@@ -442,14 +452,16 @@ impl<'lua, L, T, E, const C: usize> Push<L> for [T; C]
 
 #[cfg(feature = "nightly")]
 impl<'lua, L, T, E, const C: usize> PushOne<L> for [T; C]
-    where L: AsMutLua<'lua>,
-          T: for<'a> Push<&'a mut L, Err = E> + Copy
+where
+    L: AsMutLua<'lua>,
+    T: for<'a> Push<&'a mut L, Err = E> + Copy,
 {
 }
 
 impl<'a, 'lua, L, T, E> Push<L> for &'a [T]
-    where L: AsMutLua<'lua>,
-          T: Clone + for<'b> Push<&'b mut L, Err = E>
+where
+    L: AsMutLua<'lua>,
+    T: Clone + for<'b> Push<&'b mut L, Err = E>,
 {
     type Err = E;
 
@@ -460,14 +472,16 @@ impl<'a, 'lua, L, T, E> Push<L> for &'a [T]
 }
 
 impl<'a, 'lua, L, T, E> PushOne<L> for &'a [T]
-    where L: AsMutLua<'lua>,
-          T: Clone + for<'b> Push<&'b mut L, Err = E>
+where
+    L: AsMutLua<'lua>,
+    T: Clone + for<'b> Push<&'b mut L, Err = E>,
 {
 }
 
 impl<'lua, L, S> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue, S>
-    where L: AsMutLua<'lua>,
-          S: std::hash::BuildHasher + Default,
+where
+    L: AsMutLua<'lua>,
+    S: std::hash::BuildHasher + Default,
 {
     // TODO: this should be implemented using the LuaTable API instead of raw Lua calls.
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
@@ -490,7 +504,7 @@ impl<'lua, L, S> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue, S>
                         // Cleaning up after ourselves
                         unsafe { ffi::lua_pop(raw_lua.as_ptr(), 2) };
                         return Err(me);
-                    }
+                    },
                     Some(k) => k,
                 }
             };
@@ -508,10 +522,11 @@ impl<'lua, L, S> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue, S>
 
 // TODO: use an enum for the error to allow different error types for K and V
 impl<'lua, L, K, V, E, S> Push<L> for HashMap<K, V, S>
-    where L: AsMutLua<'lua>,
-          K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
-          V: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E>,
-          S: std::hash::BuildHasher,
+where
+    L: AsMutLua<'lua>,
+    K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
+    V: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E>,
+    S: std::hash::BuildHasher,
 {
     type Err = E;
 
@@ -526,17 +541,19 @@ impl<'lua, L, K, V, E, S> Push<L> for HashMap<K, V, S>
 }
 
 impl<'lua, L, K, V, E, S> PushOne<L> for HashMap<K, V, S>
-    where L: AsMutLua<'lua>,
-          K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
-          V: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E>,
-          S: std::hash::BuildHasher,
+where
+    L: AsMutLua<'lua>,
+    K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
+    V: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E>,
+    S: std::hash::BuildHasher,
 {
 }
 
 impl<'lua, L, K, E, S> Push<L> for HashSet<K, S>
-    where L: AsMutLua<'lua>,
-          K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
-          S: std::hash::BuildHasher,
+where
+    L: AsMutLua<'lua>,
+    K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
+    S: std::hash::BuildHasher,
 {
     type Err = E;
 
@@ -551,18 +568,16 @@ impl<'lua, L, K, E, S> Push<L> for HashSet<K, S>
 }
 
 impl<'lua, L, K, E, S> PushOne<L> for HashSet<K, S>
-    where L: AsMutLua<'lua>,
-          K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
-          S: std::hash::BuildHasher,
+where
+    L: AsMutLua<'lua>,
+    K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
+    S: std::hash::BuildHasher,
 {
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::AnyHashableLuaValue;
-    use crate::AnyLuaValue;
-    use crate::Lua;
-    use crate::LuaTable;
+    use crate::{AnyHashableLuaValue, AnyLuaValue, Lua, LuaTable};
     use std::collections::{BTreeMap, HashMap, HashSet};
 
     #[test]
@@ -631,7 +646,7 @@ mod tests {
         let val: i32 = lua.get("a").unwrap();
         assert_eq!(val, 12);
     }
-    
+
     #[test]
     #[cfg(feature = "nightly")]
     fn reading_array_works() {
@@ -644,14 +659,13 @@ mod tests {
         let read: [f32; 3] = lua.get("v").unwrap();
         assert_eq!(read, orig);
     }
-    
 
     #[test]
     #[cfg(feature = "nightly")]
     fn reading_array_as_arg_works() {
         let mut lua = Lua::new();
 
-        lua.set("fn", crate::function1(|_array: [u32; 2]| { }));
+        lua.set("fn", crate::function1(|_array: [u32; 2]| {}));
         assert_ne!(lua.get::<AnyLuaValue, _>("fn"), None);
     }
 
@@ -724,12 +738,11 @@ mod tests {
 
         let read: [[u32; 4]; 2] = lua.get("v").unwrap();
         assert_eq!(read, [[1, 2, 3, 4], [5, 6, 7, 8]]);
-        
+
         let read: Vec<[u32; 4]> = lua.get("v").unwrap();
         assert_eq!(read, [[1, 2, 3, 4], [5, 6, 7, 8]]);
     }
 
-    
     #[test]
     #[cfg(feature = "nightly")]
     fn writing_array_works() {
@@ -791,7 +804,7 @@ mod tests {
         lua.execute::<()>(r#"v = { { { 1, 2 }, { 3, 4 }, { 5, 6 } }, { { 7, 8 } } }"#).unwrap();
 
         let read: Vec<Vec<Vec<u32>>> = lua.get("v").unwrap();
-        assert_eq!(read, [&[[1,2], [3,4], [5,6]][..], &[[7,8]][..]]);
+        assert_eq!(read, [&[[1, 2], [3, 4], [5, 6]][..], &[[7, 8]][..]]);
     }
 
     #[test]
@@ -834,8 +847,8 @@ mod tests {
         let read: Vec<AnyLuaValue> = lua.get("v").unwrap();
         assert_eq!(
             read,
-            [1., 2., 3.].iter()
-                .map(|x| AnyLuaValue::LuaNumber(*x)).collect::<Vec<_>>());
+            [1., 2., 3.].iter().map(|x| AnyLuaValue::LuaNumber(*x)).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -847,15 +860,16 @@ mod tests {
         lua.execute::<()>(r#"vf64 = { 1.5, 2.5, 3.5 }"#).unwrap();
 
         assert_eq!(lua.get::<Vec<String>, _>("vstr").unwrap(), ["foo", "bar", "baz"]);
-        assert_eq!(lua.get::<Vec<u32>,_>("vu32").unwrap(), [1, 2, 3]);
-        assert_eq!(lua.get::<Vec<f64>,_>("vf64").unwrap(), [1.5, 2.5, 3.5]);
+        assert_eq!(lua.get::<Vec<u32>, _>("vu32").unwrap(), [1, 2, 3]);
+        assert_eq!(lua.get::<Vec<f64>, _>("vf64").unwrap(), [1.5, 2.5, 3.5]);
     }
 
     #[test]
     fn reading_hashmap_works() {
         let mut lua = Lua::new();
 
-        let orig: HashMap<i32, f64> = [1., 2., 3.].iter().enumerate().map(|(k, v)| (k as i32, *v as f64)).collect();
+        let orig: HashMap<i32, f64> =
+            [1., 2., 3.].iter().enumerate().map(|(k, v)| (k as i32, *v as f64)).collect();
         let orig_copy = orig.clone();
         // Collect to BTreeMap so that iterator yields values in order
         let orig_btree: BTreeMap<_, _> = orig_copy.into_iter().collect();
@@ -907,7 +921,10 @@ mod tests {
 
         let read: HashMap<_, _> = lua.get("v").unwrap();
         assert_eq!(read[&AnyHashableLuaValue::LuaInteger(-1)], AnyLuaValue::LuaNumber(-1.));
-        assert_eq!(read[&AnyHashableLuaValue::LuaString("foo".to_owned())], AnyLuaValue::LuaNumber(2.));
+        assert_eq!(
+            read[&AnyHashableLuaValue::LuaString("foo".to_owned())],
+            AnyLuaValue::LuaNumber(2.)
+        );
         assert_eq!(read[&AnyHashableLuaValue::LuaInteger(2)], AnyLuaValue::LuaNumber(42.));
         assert_eq!(read.len(), 3);
     }
@@ -931,7 +948,10 @@ mod tests {
 
         let mut orig = HashMap::new();
         orig.insert(AnyHashableLuaValue::LuaInteger(42), AnyLuaValue::LuaNumber(42.));
-        orig.insert(AnyHashableLuaValue::LuaString("foo".to_owned()), AnyLuaValue::LuaString("foo".to_owned()));
+        orig.insert(
+            AnyHashableLuaValue::LuaString("foo".to_owned()),
+            AnyLuaValue::LuaString("foo".to_owned()),
+        );
         orig.insert(AnyHashableLuaValue::LuaBoolean(true), AnyLuaValue::LuaBoolean(true));
 
         let orig_clone = orig.clone();
@@ -950,7 +970,14 @@ mod tests {
         let read: HashMap<_, _> = lua.get("v").unwrap();
         assert_eq!(
             read,
-            [2., 3., 4.].iter().enumerate()
-                .map(|(k, v)| (AnyHashableLuaValue::LuaInteger((k + 1) as i32), AnyLuaValue::LuaNumber(*v))).collect::<HashMap<_, _>>());
+            [2., 3., 4.]
+                .iter()
+                .enumerate()
+                .map(|(k, v)| (
+                    AnyHashableLuaValue::LuaInteger((k + 1) as i32),
+                    AnyLuaValue::LuaNumber(*v)
+                ))
+                .collect::<HashMap<_, _>>()
+        );
     }
 }

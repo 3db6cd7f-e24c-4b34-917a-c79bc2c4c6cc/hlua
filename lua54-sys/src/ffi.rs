@@ -680,172 +680,87 @@ fn bindgen_test_layout_lua_Debug() {
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).event as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(event)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(event))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).name as *const _ as usize },
         8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(name)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(name))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).namewhat as *const _ as usize },
         16usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(namewhat)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(namewhat))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).what as *const _ as usize },
         24usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(what)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(what))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).source as *const _ as usize },
         32usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(source)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(source))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).srclen as *const _ as usize },
         40usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(srclen)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(srclen))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).currentline as *const _ as usize },
         48usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(currentline)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(currentline))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).linedefined as *const _ as usize },
         52usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(linedefined)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(linedefined))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).lastlinedefined as *const _ as usize },
         56usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(lastlinedefined)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(lastlinedefined))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).nups as *const _ as usize },
         60usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(nups)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(nups))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).nparams as *const _ as usize },
         61usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(nparams)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(nparams))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).isvararg as *const _ as usize },
         62usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(isvararg)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(isvararg))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).istailcall as *const _ as usize },
         63usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(istailcall)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(istailcall))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).ftransfer as *const _ as usize },
         64usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(ftransfer)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(ftransfer))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).ntransfer as *const _ as usize },
         66usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(ntransfer)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(ntransfer))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).short_src as *const _ as usize },
         68usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(short_src)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(short_src))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<lua_Debug>())).i_ci as *const _ as usize },
         128usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lua_Debug),
-            "::",
-            stringify!(i_ci)
-        )
+        concat!("Offset of field: ", stringify!(lua_Debug), "::", stringify!(i_ci))
     );
 }
 impl ::core::fmt::Debug for lua_Debug {
@@ -904,11 +819,7 @@ pub struct _iobuf {
 }
 #[test]
 fn bindgen_test_layout__iobuf() {
-    assert_eq!(
-        ::core::mem::size_of::<_iobuf>(),
-        8usize,
-        concat!("Size of: ", stringify!(_iobuf))
-    );
+    assert_eq!(::core::mem::size_of::<_iobuf>(), 8usize, concat!("Size of: ", stringify!(_iobuf)));
     assert_eq!(
         ::core::mem::align_of::<_iobuf>(),
         8usize,
@@ -917,12 +828,7 @@ fn bindgen_test_layout__iobuf() {
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<_iobuf>()))._Placeholder as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(_iobuf),
-            "::",
-            stringify!(_Placeholder)
-        )
+        concat!("Offset of field: ", stringify!(_iobuf), "::", stringify!(_Placeholder))
     );
 }
 pub type FILE = _iobuf;
@@ -948,22 +854,12 @@ fn bindgen_test_layout_luaL_Reg() {
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Reg>())).name as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Reg),
-            "::",
-            stringify!(name)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Reg), "::", stringify!(name))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Reg>())).func as *const _ as usize },
         8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Reg),
-            "::",
-            stringify!(func)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Reg), "::", stringify!(func))
     );
 }
 extern "C" {
@@ -1230,62 +1126,32 @@ fn bindgen_test_layout_luaL_Buffer__bindgen_ty_1() {
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer__bindgen_ty_1>())).n as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer__bindgen_ty_1),
-            "::",
-            stringify!(n)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer__bindgen_ty_1), "::", stringify!(n))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer__bindgen_ty_1>())).u as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer__bindgen_ty_1),
-            "::",
-            stringify!(u)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer__bindgen_ty_1), "::", stringify!(u))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer__bindgen_ty_1>())).s as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer__bindgen_ty_1),
-            "::",
-            stringify!(s)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer__bindgen_ty_1), "::", stringify!(s))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer__bindgen_ty_1>())).i as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer__bindgen_ty_1),
-            "::",
-            stringify!(i)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer__bindgen_ty_1), "::", stringify!(i))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer__bindgen_ty_1>())).l as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer__bindgen_ty_1),
-            "::",
-            stringify!(l)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer__bindgen_ty_1), "::", stringify!(l))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer__bindgen_ty_1>())).b as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer__bindgen_ty_1),
-            "::",
-            stringify!(b)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer__bindgen_ty_1), "::", stringify!(b))
     );
 }
 impl ::core::fmt::Debug for luaL_Buffer__bindgen_ty_1 {
@@ -1308,52 +1174,27 @@ fn bindgen_test_layout_luaL_Buffer() {
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer>())).b as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer),
-            "::",
-            stringify!(b)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer), "::", stringify!(b))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer>())).size as *const _ as usize },
         8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer),
-            "::",
-            stringify!(size)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer), "::", stringify!(size))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer>())).n as *const _ as usize },
         16usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer),
-            "::",
-            stringify!(n)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer), "::", stringify!(n))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer>())).L as *const _ as usize },
         24usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer),
-            "::",
-            stringify!(L)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer), "::", stringify!(L))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Buffer>())).init as *const _ as usize },
         32usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Buffer),
-            "::",
-            stringify!(init)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Buffer), "::", stringify!(init))
     );
 }
 impl ::core::fmt::Debug for luaL_Buffer {
@@ -1423,22 +1264,12 @@ fn bindgen_test_layout_luaL_Stream() {
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Stream>())).f as *const _ as usize },
         0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Stream),
-            "::",
-            stringify!(f)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Stream), "::", stringify!(f))
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<luaL_Stream>())).closef as *const _ as usize },
         8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(luaL_Stream),
-            "::",
-            stringify!(closef)
-        )
+        concat!("Offset of field: ", stringify!(luaL_Stream), "::", stringify!(closef))
     );
 }
 pub type __builtin_va_list = *mut libc::c_char;

@@ -48,10 +48,8 @@ fn main() {
         .file("lua/src/loadlib.c")
         .file("lua/src/linit.c")
         .file("lua/src/lutf8lib.c")
-
         .define("LUA_INT_TYPE", Some("LUA_INT_INT"))
         .define("LUA_FLOAT_TYPE", Some("LUA_FLOAT_DOUBLE"))
-
         .include("lua/src")
         .compile("liblua.a");
 }

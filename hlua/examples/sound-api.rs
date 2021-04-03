@@ -1,5 +1,4 @@
-#[macro_use]
-extern crate hlua;
+#[macro_use] extern crate hlua;
 
 fn main() {
     let mut lua = hlua::Lua::new();
@@ -13,7 +12,8 @@ fn main() {
         sound_namespace.set("new", hlua::function0(|| Sound::new()));
     }
 
-    lua.execute::<()>(r#"
+    lua.execute::<()>(
+        r#"
         s = Sound.new();
         s:play();
 
@@ -23,8 +23,9 @@ fn main() {
         s:stop();
         print("is the sound playing:", s:is_playing());
 
-    "#)
-        .unwrap();
+    "#,
+    )
+    .unwrap();
 }
 
 // this `Sound` struct is the object that we will use to demonstrate hlua
@@ -43,8 +44,7 @@ implement_lua_push!(Sound, |mut metatable| {
 
     index.set("stop", hlua::function1(|snd: &mut Sound| snd.stop()));
 
-    index.set("is_playing",
-              hlua::function1(|snd: &Sound| snd.is_playing()));
+    index.set("is_playing", hlua::function1(|snd: &Sound| snd.is_playing()));
 });
 
 // this macro implements the require traits so that we can *read* the object back

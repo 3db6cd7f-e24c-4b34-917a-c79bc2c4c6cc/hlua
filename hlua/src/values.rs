@@ -1,17 +1,6 @@
-use std::mem;
-use std::ops::Deref;
-use std::slice;
-use std::str;
+use std::{mem, ops::Deref, slice, str};
 
-use crate::AnyLuaString;
-use crate::AnyLuaValue;
-use crate::AsLua;
-use crate::AsMutLua;
-use crate::LuaRead;
-use crate::Push;
-use crate::PushGuard;
-use crate::PushOne;
-use crate::Void;
+use crate::{AnyLuaString, AnyLuaValue, AsLua, AsMutLua, LuaRead, Push, PushGuard, PushOne, Void};
 
 macro_rules! integer_impl(
     ($t:ident) => (
@@ -127,7 +116,8 @@ numeric_impl!(f32);
 numeric_impl!(f64);
 
 impl<'lua, L> Push<L> for String
-    where L: AsMutLua<'lua>
+where
+    L: AsMutLua<'lua>,
 {
     type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
@@ -137,15 +127,11 @@ impl<'lua, L> Push<L> for String
             let raw_lua = lua.as_mut_lua();
             ffi::lua_pushlstring(
                 raw_lua.as_ptr(),
-                self.as_bytes().as_ptr() as *const _,
+                self.as_bytes().as_ptr().cast(),
                 self.as_bytes().len() as libc::size_t,
             );
 
-            Ok(PushGuard {
-                lua,
-                size: 1,
-                raw_lua,
-            })
+            Ok(PushGuard { lua, size: 1, raw_lua })
         }
     }
 }
@@ -153,19 +139,21 @@ impl<'lua, L> Push<L> for String
 impl<'lua, L> PushOne<L> for String where L: AsMutLua<'lua> {}
 
 impl<'lua, L> LuaRead<L> for String
-    where L: AsLua<'lua>
+where
+    L: AsLua<'lua>,
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<String, L> {
         let mut size = mem::MaybeUninit::uninit();
-        let c_str_raw = unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
+        let c_str_raw =
+            unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
         if c_str_raw.is_null() {
             return Err(lua);
         }
 
         let size = unsafe { size.assume_init() };
 
-        let c_slice = unsafe { slice::from_raw_parts(c_str_raw as *const u8, size) };
+        let c_slice = unsafe { slice::from_raw_parts(c_str_raw.cast(), size) };
         let maybe_string = String::from_utf8(c_slice.to_vec());
         match maybe_string {
             Ok(string) => Ok(string),
@@ -175,7 +163,8 @@ impl<'lua, L> LuaRead<L> for String
 }
 
 impl<'lua, L> Push<L> for AnyLuaString
-    where L: AsMutLua<'lua>
+where
+    L: AsMutLua<'lua>,
 {
     type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
@@ -186,39 +175,38 @@ impl<'lua, L> Push<L> for AnyLuaString
             let raw_lua = lua.as_mut_lua();
             ffi::lua_pushlstring(
                 raw_lua.as_ptr(),
-                v[..].as_ptr() as *const _,
+                v[..].as_ptr().cast(),
                 v[..].len() as libc::size_t,
             );
 
-            Ok(PushGuard {
-                lua,
-                size: 1,
-                raw_lua,
-            })
+            Ok(PushGuard { lua, size: 1, raw_lua })
         }
     }
 }
 
 impl<'lua, L> LuaRead<L> for AnyLuaString
-    where L: AsLua<'lua>
+where
+    L: AsLua<'lua>,
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<AnyLuaString, L> {
         let mut size = mem::MaybeUninit::uninit();
-        let c_str_raw = unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
+        let c_str_raw =
+            unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
         if c_str_raw.is_null() {
             return Err(lua);
         }
 
         let size = unsafe { size.assume_init() };
 
-        let c_slice = unsafe { slice::from_raw_parts(c_str_raw as *const u8, size) };
+        let c_slice = unsafe { slice::from_raw_parts(c_str_raw.cast::<u8>(), size) };
         Ok(AnyLuaString(c_slice.to_vec()))
     }
 }
 
 impl<'lua, 's, L> Push<L> for &'s str
-    where L: AsMutLua<'lua>
+where
+    L: AsMutLua<'lua>,
 {
     type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
@@ -228,15 +216,11 @@ impl<'lua, 's, L> Push<L> for &'s str
             let raw_lua = lua.as_mut_lua();
             ffi::lua_pushlstring(
                 raw_lua.as_ptr(),
-                self.as_bytes().as_ptr() as *const _,
+                self.as_bytes().as_ptr().cast(),
                 self.as_bytes().len() as libc::size_t,
             );
 
-            Ok(PushGuard {
-                lua,
-                size: 1,
-                raw_lua,
-            })
+            Ok(PushGuard { lua, size: 1, raw_lua })
         }
     }
 }
@@ -267,29 +251,27 @@ pub struct StringInLua<L> {
 }
 
 impl<'lua, L> LuaRead<L> for StringInLua<L>
-    where L: AsLua<'lua>
+where
+    L: AsLua<'lua>,
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<StringInLua<L>, L> {
         let mut size = mem::MaybeUninit::uninit();
-        let c_str_raw = unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
+        let c_str_raw =
+            unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
         if c_str_raw.is_null() {
             return Err(lua);
         }
 
         let size = unsafe { size.assume_init() };
 
-        let c_slice = unsafe { slice::from_raw_parts(c_str_raw as *const u8, size) };
+        let c_slice = unsafe { slice::from_raw_parts(c_str_raw.cast::<u8>(), size) };
         match str::from_utf8(c_slice) {
             Ok(_) => (),
-            Err(_) => return Err(lua)
+            Err(_) => return Err(lua),
         };
 
-        Ok(StringInLua {
-            lua,
-            c_str_raw,
-            size,
-        })
+        Ok(StringInLua { lua, c_str_raw, size })
     }
 }
 
@@ -298,7 +280,7 @@ impl<L> Deref for StringInLua<L> {
 
     #[inline]
     fn deref(&self) -> &str {
-        let c_slice = unsafe { slice::from_raw_parts(self.c_str_raw as *const u8, self.size) };
+        let c_slice = unsafe { slice::from_raw_parts(self.c_str_raw.cast::<u8>(), self.size) };
         match str::from_utf8(c_slice) {
             Ok(s) => s,
             Err(_) => unreachable!(), // Checked earlier
@@ -307,7 +289,8 @@ impl<L> Deref for StringInLua<L> {
 }
 
 impl<'lua, L> Push<L> for bool
-    where L: AsMutLua<'lua>
+where
+    L: AsMutLua<'lua>,
 {
     type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
@@ -315,18 +298,15 @@ impl<'lua, L> Push<L> for bool
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
         let raw_lua = lua.as_mut_lua();
         unsafe { ffi::lua_pushboolean(raw_lua.as_ptr(), self as libc::c_int) };
-        Ok(PushGuard {
-            lua,
-            size: 1,
-            raw_lua,
-        })
+        Ok(PushGuard { lua, size: 1, raw_lua })
     }
 }
 
 impl<'lua, L> PushOne<L> for bool where L: AsMutLua<'lua> {}
 
 impl<'lua, L> LuaRead<L> for bool
-    where L: AsLua<'lua>
+where
+    L: AsLua<'lua>,
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<bool, L> {
@@ -340,7 +320,8 @@ impl<'lua, L> LuaRead<L> for bool
 }
 
 impl<'lua, L> Push<L> for ()
-    where L: AsMutLua<'lua>
+where
+    L: AsMutLua<'lua>,
 {
     type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
@@ -348,16 +329,13 @@ impl<'lua, L> Push<L> for ()
     fn push_to_lua(self, lua: L) -> Result<PushGuard<L>, (Void, L)> {
         let raw_lua = lua.as_lua();
 
-        Ok(PushGuard {
-            lua,
-            size: 0,
-            raw_lua,
-        })
+        Ok(PushGuard { lua, size: 0, raw_lua })
     }
 }
 
 impl<'lua, L> LuaRead<L> for ()
-    where L: AsLua<'lua>
+where
+    L: AsLua<'lua>,
 {
     #[inline]
     fn lua_read_at_position(_: L, _: i32) -> Result<(), L> {
@@ -366,8 +344,9 @@ impl<'lua, L> LuaRead<L> for ()
 }
 
 impl<'lua, L, T, E> Push<L> for Option<T>
-where T: Push<L, Err = E>,
-      L: AsMutLua<'lua>
+where
+    T: Push<L, Err = E>,
+    L: AsMutLua<'lua>,
 {
     type Err = E;
 
@@ -381,14 +360,16 @@ where T: Push<L, Err = E>,
 }
 
 impl<'lua, L, T, E> PushOne<L> for Option<T>
-where T: PushOne<L, Err = E>,
-      L: AsMutLua<'lua>
+where
+    T: PushOne<L, Err = E>,
+    L: AsMutLua<'lua>,
 {
 }
 
 impl<'lua, T, L> LuaRead<L> for Option<T>
-    where T: LuaRead<L>,
-          L: AsLua<'lua>
+where
+    T: LuaRead<L>,
+    L: AsLua<'lua>,
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<Option<T>, L> {
@@ -407,10 +388,7 @@ impl<'lua, T, L> LuaRead<L> for Option<T>
 
 #[cfg(test)]
 mod tests {
-    use crate::AnyLuaString;
-    use crate::AnyLuaValue;
-    use crate::Lua;
-    use crate::StringInLua;
+    use crate::{AnyLuaString, AnyLuaValue, Lua, StringInLua};
 
     #[test]
     fn read_i32s() {
@@ -459,22 +437,44 @@ mod tests {
 
                 assert_eq!(lua.get::<T, _>("min_v").expect("1"), MIN, "min invalid (roundtrip)");
                 assert_eq!(lua.get::<T, _>("max_v").expect("2"), MAX, "max invalid (roundtrip)");
-                
+
                 lua.set("min_fn_ret", crate::function0(|| -> T { MIN }));
                 lua.set("max_fn_ret", crate::function0(|| -> T { MAX }));
-                
+
                 lua.set("min_fn_arg", crate::function1(|x: T| -> bool { x == MIN }));
                 lua.set("max_fn_arg", crate::function1(|x: T| -> bool { x == MAX }));
 
-                assert_eq!(lua.execute::<T>("return min_fn_ret()").expect("3"), MIN, "min invalid (func return to lua)");
-                assert_eq!(lua.execute::<T>("return max_fn_ret()").expect("4"), MAX, "max invalid (func return to lua)");
+                assert_eq!(
+                    lua.execute::<T>("return min_fn_ret()").expect("3"),
+                    MIN,
+                    "min invalid (func return to lua)"
+                );
+                assert_eq!(
+                    lua.execute::<T>("return max_fn_ret()").expect("4"),
+                    MAX,
+                    "max invalid (func return to lua)"
+                );
 
-                assert!(lua.execute::<bool>("return min_fn_arg(min_v)").expect("5"), "min invalid (func arg from lua)");
-                assert!(lua.execute::<bool>("return max_fn_arg(max_v)").expect("6"), "max invalid (func arg from lua)");
+                assert!(
+                    lua.execute::<bool>("return min_fn_arg(min_v)").expect("5"),
+                    "min invalid (func arg from lua)"
+                );
+                assert!(
+                    lua.execute::<bool>("return max_fn_arg(max_v)").expect("6"),
+                    "max invalid (func arg from lua)"
+                );
 
                 if $validate_in_lua {
-                    assert_eq!(lua.execute::<f64>(&format!("return {}", MIN)).expect("7") as T, MIN, "min invalid (read from lua)");
-                    assert_eq!(lua.execute::<f64>(&format!("return {}", MAX)).expect("8") as T, MAX, "max invalid (read from lua)");
+                    assert_eq!(
+                        lua.execute::<f64>(&format!("return {}", MIN)).expect("7") as T,
+                        MIN,
+                        "min invalid (read from lua)"
+                    );
+                    assert_eq!(
+                        lua.execute::<f64>(&format!("return {}", MAX)).expect("8") as T,
+                        MAX,
+                        "max invalid (read from lua)"
+                    );
 
                     lua.execute::<()>(&format!("min_l = {}", MIN)).expect("9");
                     lua.execute::<()>(&format!("max_l = {}", MAX)).expect("10");
@@ -482,20 +482,38 @@ mod tests {
                     assert_eq!(
                         lua.execute::<String>("return string.format('%f', min_l)").expect("15"),
                         lua.execute::<String>("return string.format('%f', min_v)").expect("15"),
-                    "min invalid (string in lua)");
-                    
+                        "min invalid (string in lua)"
+                    );
+
                     assert_eq!(
                         lua.execute::<String>("return string.format('%.0f', max_l)").expect("15"),
                         lua.execute::<String>("return string.format('%.0f', max_v)").expect("15"),
-                    "max invalid (string in lua)");
+                        "max invalid (string in lua)"
+                    );
 
-                    assert!(lua.execute::<bool>("return min_l == min_fn_ret()").expect("13"), "min invalid (in lua, func return)");
-                    assert!(lua.execute::<bool>("return max_l == max_fn_ret()").expect("14"), "max invalid (in lua, func return)");
+                    assert!(
+                        lua.execute::<bool>("return min_l == min_fn_ret()").expect("13"),
+                        "min invalid (in lua, func return)"
+                    );
+                    assert!(
+                        lua.execute::<bool>("return max_l == max_fn_ret()").expect("14"),
+                        "max invalid (in lua, func return)"
+                    );
 
-                    assert_eq!(lua.execute::<String>(&format!("return string.format('%.0f', {})", MIN)).expect("15"), format!("{}", MIN), "min invalid (string in lua)");
-                    assert_eq!(lua.execute::<String>(&format!("return string.format('%.0f', {})", MAX)).expect("16"), format!("{}", MAX), "max invalid (string in lua)");    
+                    assert_eq!(
+                        lua.execute::<String>(&format!("return string.format('%.0f', {})", MIN))
+                            .expect("15"),
+                        format!("{}", MIN),
+                        "min invalid (string in lua)"
+                    );
+                    assert_eq!(
+                        lua.execute::<String>(&format!("return string.format('%.0f', {})", MAX))
+                            .expect("16"),
+                        format!("{}", MAX),
+                        "max invalid (string in lua)"
+                    );
                 }
-            }}
+            }};
         }
 
         validate_extremes!(true, i8);
@@ -626,12 +644,12 @@ mod tests {
         lua.set("none", crate::function0(|| Option::None::<i32>));
 
         match lua.execute::<i32>("return some()") {
-            Ok(123) => {}
+            Ok(123) => {},
             unexpected => panic!("{:?}", unexpected),
         }
 
         match lua.execute::<AnyLuaValue>("return none()") {
-            Ok(AnyLuaValue::LuaNil) => {}
+            Ok(AnyLuaValue::LuaNil) => {},
             unexpected => panic!("{:?}", unexpected),
         }
 

@@ -1,18 +1,7 @@
-use crate::AnyLuaValue;
-use crate::AsLua;
-use crate::AsMutLua;
-use crate::LuaContext;
-use crate::LuaRead;
-use crate::Push;
-use crate::PushGuard;
-use crate::PushOne;
-use crate::Void;
+use crate::{AnyLuaValue, AsLua, AsMutLua, LuaContext, LuaRead, Push, PushGuard, PushOne, Void};
 
-use std::fmt::Display;
-use std::marker::PhantomData;
-use std::mem;
-use std::ptr;
 use ptr::NonNull;
+use std::{fmt::Display, marker::PhantomData, mem, ptr};
 
 macro_rules! impl_function {
     ($name:ident, $($p:ident),*) => (
@@ -174,7 +163,7 @@ pub trait FunctionExt<P> {
 extern "C" fn closure_destructor_wrapper<T>(lua: *mut ffi::lua_State) -> libc::c_int {
     unsafe {
         let obj = ffi::lua_touserdata(lua, -1);
-        ptr::drop_in_place((obj as *mut u8) as *mut T);
+        ptr::drop_in_place(obj.cast::<T>());
         0
     }
 }
@@ -346,8 +335,10 @@ unsafe impl<'a, 'lua> AsMutLua<'lua> for &'a mut InsideCallback {
 }
 
 impl<'a, T, E, P> Push<&'a mut InsideCallback> for Result<T, E>
-    where T: Push<&'a mut InsideCallback, Err = P> + for<'b> Push<&'b mut &'a mut InsideCallback, Err = P>,
-          E: Display
+where
+    T: Push<&'a mut InsideCallback, Err = P>
+        + for<'b> Push<&'b mut &'a mut InsideCallback, Err = P>,
+    E: Display,
 {
     type Err = P;
 
@@ -364,26 +355,27 @@ impl<'a, T, E, P> Push<&'a mut InsideCallback> for Result<T, E>
 }
 
 impl<'a, T, E, P> PushOne<&'a mut InsideCallback> for Result<T, E>
-    where T: PushOne<&'a mut InsideCallback, Err = P> + for<'b> PushOne<&'b mut &'a mut InsideCallback, Err = P>,
-          E: Display
+where
+    T: PushOne<&'a mut InsideCallback, Err = P>
+        + for<'b> PushOne<&'b mut &'a mut InsideCallback, Err = P>,
+    E: Display,
 {
 }
 
 // this function is called when Lua wants to call one of our functions
 #[inline]
 extern "C" fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
-    where T: FunctionExt<P, Output = R>,
-          P: for<'p> LuaRead<&'p mut InsideCallback> + 'static,
-          R: for<'p> Push<&'p mut InsideCallback>
+where
+    T: FunctionExt<P, Output = R>,
+    P: for<'p> LuaRead<&'p mut InsideCallback> + 'static,
+    R: for<'p> Push<&'p mut InsideCallback>,
 {
     // loading the object that we want to call from the Lua context
     let data_raw = unsafe { ffi::lua_touserdata(lua, ffi::lua_upvalueindex(1)) };
-    let data: &mut T = unsafe { &mut *(data_raw as *mut T) };
+    let data: &mut T = unsafe { &mut *data_raw.cast::<T>() };
 
     // creating a temporary Lua context in order to pass it to push & read functions
-    let mut tmp_lua = InsideCallback {
-        lua: unsafe { NonNull::new_unchecked(lua) },
-    };
+    let mut tmp_lua = InsideCallback { lua: unsafe { NonNull::new_unchecked(lua) } };
 
     // trying to read the arguments
     let arguments_count = unsafe { ffi::lua_gettop(lua) } as i32;
@@ -399,7 +391,7 @@ extern "C" fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
                 ffi::lua_error(lua);
             }
             unreachable!()
-        }
+        },
         Ok(a) => a,
     };
 
@@ -415,11 +407,7 @@ extern "C" fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
 
 #[cfg(test)]
 mod tests {
-    use crate::function0;
-    use crate::function1;
-    use crate::function2;
-    use crate::Lua;
-    use crate::LuaError;
+    use crate::{function0, function1, function2, Lua, LuaError};
 
     use std::sync::Arc;
 
@@ -487,12 +475,14 @@ mod tests {
         };
         lua.set("always_fails", function0(always_fails));
 
-        match lua.execute::<()>(r#"
+        match lua.execute::<()>(
+            r#"
             local res, err = always_fails();
             assert(res == nil);
             assert(err == "oops, problem");
-        "#) {
-            Ok(()) => {}
+        "#,
+        ) {
+            Ok(()) => {},
             Err(e) => panic!("{:?}", e),
         }
     }
@@ -514,7 +504,8 @@ mod tests {
     #[test]
     fn closures_lifetime() {
         fn t<F>(f: F)
-            where F: Fn(i32, i32) -> i32
+        where
+            F: Fn(i32, i32) -> i32,
         {
             let mut lua = Lua::new();
 
