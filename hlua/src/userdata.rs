@@ -16,12 +16,12 @@ use crate::LuaTable;
 
 struct RawUserdata<T> {
     typeid: TypeId,
-    data: T,
+    data: Box<T>,
 }
 
 impl<T: 'static> RawUserdata<T> {
     #[inline(always)]
-    fn new(data: T) -> RawUserdata<T> {
+    fn new(data: Box<T>) -> RawUserdata<T> {
         RawUserdata { typeid: TypeId::of::<T>(), data }
     }
 }
@@ -79,7 +79,7 @@ pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGu
         debug_assert_eq!(lua_data as usize % mem::align_of::<RawUserdata<T>>(), 0);
 
         // We write the `RawUserdata` block.
-        ptr::write(lua_data, RawUserdata::new(data));
+        ptr::write(lua_data, RawUserdata::new(Box::new(data)));
 
         // Get the metatable if one already exist
         ffi::lua_pushlstring(raw_lua.as_ptr(), typeid_ptr, typeid_size);
@@ -165,7 +165,7 @@ pub fn read_userdata<'t, 'c, T>(
     unsafe {
         let ptr = ffi::lua_touserdata(lua.as_lua().as_ptr(), index);
         match ptr.cast::<RawUserdata<T>>().as_mut() {
-            Some(ud) if ud.typeid == TypeId::of::<T>() => Ok(&mut ud.data),
+            Some(ud) if ud.typeid == TypeId::of::<T>() => Ok(Box::deref_mut(&mut ud.data)),
             _ => Err(lua),
         }
     }
