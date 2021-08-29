@@ -1,4 +1,4 @@
-use crate::{AsLua, AsMutLua};
+use crate::AsMutLua;
 
 use crate::{LuaRead, LuaTable, Push, PushGuard, PushOne, Void};
 
@@ -82,66 +82,56 @@ where
     L: AsMutLua<'lua>,
 {
     #[inline]
-    fn lua_read_at_position(mut lua: L, index: i32) -> Result<AnyLuaValue, L> {
+    fn lua_read_at_position(lua: L, index: i32) -> Result<AnyLuaValue, L> {
         let raw_lua = lua.as_lua();
         // If we know that the value on the stack is a string, we should try
         // to parse it as a string instead of a number or boolean, so that
         // values such as '1.10' don't become `AnyLuaValue::LuaNumber(1.1)`.
         let data_type = unsafe { ffi::lua_type(raw_lua.as_ptr(), index) };
         if data_type == ffi::LUA_TSTRING {
-            let mut lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyLuaValue::LuaString(v)),
-                    Err(lua) => lua,
-                };
+            let lua = match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => return Ok(AnyLuaValue::LuaString(v)),
+                Err(lua) => lua,
+            };
 
-            let _lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyLuaValue::LuaAnyString(v)),
-                    Err(lua) => lua,
-                };
-
-            Ok(AnyLuaValue::LuaOther)
+            match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => Ok(AnyLuaValue::LuaAnyString(v)),
+                Err(_) => Ok(AnyLuaValue::LuaOther),
+            }
         } else {
-            let mut lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyLuaValue::LuaNumber(v)),
-                    Err(lua) => lua,
-                };
+            let lua = match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => return Ok(AnyLuaValue::LuaNumber(v)),
+                Err(lua) => lua,
+            };
 
-            let mut lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyLuaValue::LuaBoolean(v)),
-                    Err(lua) => lua,
-                };
+            let lua = match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => return Ok(AnyLuaValue::LuaBoolean(v)),
+                Err(lua) => lua,
+            };
 
-            let mut lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyLuaValue::LuaString(v)),
-                    Err(lua) => lua,
-                };
+            let lua = match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => return Ok(AnyLuaValue::LuaString(v)),
+                Err(lua) => lua,
+            };
 
-            let lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyLuaValue::LuaAnyString(v)),
-                    Err(lua) => lua,
-                };
+            let mut lua = match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => return Ok(AnyLuaValue::LuaAnyString(v)),
+                Err(lua) => lua,
+            };
 
             if unsafe { ffi::lua_isnil(raw_lua.as_ptr(), index) } {
                 return Ok(AnyLuaValue::LuaNil);
             }
 
-            let table: Result<LuaTable<_>, _> = LuaRead::lua_read_at_position(lua, index);
-            let _lua = match table {
-                Ok(mut v) => {
-                    return Ok(AnyLuaValue::LuaArray(
-                        v.iter::<AnyLuaValue, AnyLuaValue>().flatten().collect(),
-                    ))
-                },
-                Err(lua) => lua,
-            };
+            let table: Result<LuaTable<_>, _> =
+                LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index);
 
-            Ok(AnyLuaValue::LuaOther)
+            match table {
+                Ok(mut v) => Ok(AnyLuaValue::LuaArray(
+                    v.iter::<AnyLuaValue, AnyLuaValue>().flatten().collect(),
+                )),
+                Err(_) => Ok(AnyLuaValue::LuaOther),
+            }
         }
     }
 }
@@ -193,46 +183,38 @@ where
     L: AsMutLua<'lua>,
 {
     #[inline]
-    fn lua_read_at_position(mut lua: L, index: i32) -> Result<AnyHashableLuaValue, L> {
+    fn lua_read_at_position(lua: L, index: i32) -> Result<AnyHashableLuaValue, L> {
         let data_type = unsafe { ffi::lua_type(lua.as_lua().as_ptr(), index) };
         if data_type == ffi::LUA_TSTRING {
-            let mut lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyHashableLuaValue::LuaString(v)),
-                    Err(lua) => lua,
-                };
+            let lua = match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => return Ok(AnyHashableLuaValue::LuaString(v)),
+                Err(lua) => lua,
+            };
 
-            let _lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyHashableLuaValue::LuaAnyString(v)),
-                    Err(lua) => lua,
-                };
-
-            Ok(AnyHashableLuaValue::LuaOther)
+            match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => Ok(AnyHashableLuaValue::LuaAnyString(v)),
+                Err(_) => Ok(AnyHashableLuaValue::LuaOther),
+            }
         } else {
-            let mut lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyHashableLuaValue::LuaInteger(v)),
-                    Err(lua) => lua,
-                };
+            let lua = match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => return Ok(AnyHashableLuaValue::LuaInteger(v)),
+                Err(lua) => lua,
+            };
 
-            let mut lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyHashableLuaValue::LuaBoolean(v)),
-                    Err(lua) => lua,
-                };
+            let lua = match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => return Ok(AnyHashableLuaValue::LuaBoolean(v)),
+                Err(lua) => lua,
+            };
 
-            let mut lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyHashableLuaValue::LuaString(v)),
-                    Err(lua) => lua,
-                };
+            let lua = match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => return Ok(AnyHashableLuaValue::LuaString(v)),
+                Err(lua) => lua,
+            };
 
-            let mut lua =
-                match LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index) {
-                    Ok(v) => return Ok(AnyHashableLuaValue::LuaAnyString(v)),
-                    Err(lua) => lua,
-                };
+            let mut lua = match LuaRead::lua_read_at_position(lua, index) {
+                Ok(v) => return Ok(AnyHashableLuaValue::LuaAnyString(v)),
+                Err(lua) => lua,
+            };
 
             if unsafe { ffi::lua_isnil(lua.as_lua().as_ptr(), index) } {
                 return Ok(AnyHashableLuaValue::LuaNil);
@@ -240,16 +222,13 @@ where
 
             let table: Result<LuaTable<_>, _> =
                 LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index);
-            let _lua = match table {
-                Ok(mut v) => {
-                    return Ok(AnyHashableLuaValue::LuaArray(
-                        v.iter::<AnyHashableLuaValue, AnyHashableLuaValue>().flatten().collect(),
-                    ))
-                },
-                Err(lua) => lua,
-            };
 
-            Ok(AnyHashableLuaValue::LuaOther)
+            match table {
+                Ok(mut v) => Ok(AnyHashableLuaValue::LuaArray(
+                    v.iter::<AnyHashableLuaValue, AnyHashableLuaValue>().flatten().collect(),
+                )),
+                Err(_) => Ok(AnyHashableLuaValue::LuaOther),
+            }
         }
     }
 }
