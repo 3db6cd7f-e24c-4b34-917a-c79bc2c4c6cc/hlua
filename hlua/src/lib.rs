@@ -106,7 +106,6 @@
 //!
 #![allow(clippy::missing_safety_doc)] // TODO: Document instead
 #![cfg_attr(feature = "nightly", feature(min_const_generics))]
-
 #![warn(clippy::ptr_as_ptr)]
 
 // Export the version of lua52_sys in use by this crate. This allows clients to perform low-level
@@ -432,10 +431,10 @@ impl fmt::Display for LuaError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use LuaError::*;
 
-        match *self {
-            SyntaxError(ref s) => write!(f, "Syntax error: {}", s),
-            ExecutionError(ref s) => write!(f, "Execution error: {}", s),
-            ReadError(ref e) => write!(f, "Read error: {}", e),
+        match self {
+            SyntaxError(s) => write!(f, "Syntax error: {}", s),
+            ExecutionError(s) => write!(f, "Execution error: {}", s),
+            ReadError(e) => write!(f, "Read error: {}", e),
             WrongType => write!(f, "Wrong type returned by Lua"),
         }
     }
@@ -445,9 +444,9 @@ impl Error for LuaError {
     fn description(&self) -> &str {
         use LuaError::*;
 
-        match *self {
-            SyntaxError(ref s) => &s,
-            ExecutionError(ref s) => &s,
+        match self {
+            SyntaxError(ref s) => s,
+            ExecutionError(ref s) => s,
             ReadError(_) => "read error",
             WrongType => "wrong type returned by Lua",
         }
@@ -456,10 +455,10 @@ impl Error for LuaError {
     fn cause(&self) -> Option<&dyn Error> {
         use LuaError::*;
 
-        match *self {
+        match self {
             SyntaxError(_) => None,
             ExecutionError(_) => None,
-            ReadError(ref e) => Some(e),
+            ReadError(e) => Some(e),
             WrongType => None,
         }
     }
@@ -524,7 +523,7 @@ impl<'lua> Lua<'lua> {
             let err = String::from_utf8(err.to_bytes().to_vec()).unwrap();
             panic!("PANIC: unprotected error in call to Lua API ({})\n", err);
         }
-        
+
         let lua = NonNull::new(unsafe { ffi::lua_newstate(Some(alloc), std::ptr::null_mut()) });
         let lua = lua.expect("lua_newstate failed");
 
