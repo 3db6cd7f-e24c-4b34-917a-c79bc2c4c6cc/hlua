@@ -6,9 +6,7 @@ use std::{
     ptr,
 };
 
-use crate::{AsLua, AsMutLua, LuaContext, LuaRead, Push, PushGuard};
-
-use crate::{InsideCallback, LuaTable};
+use crate::{AsLua, AsMutLua, InsideCallback, Lua, LuaContext, LuaRead, LuaTable, Push, PushGuard};
 
 struct RawUserdata<T> {
     typeid: TypeId,
@@ -57,16 +55,19 @@ extern "C" fn destructor_wrapper<T>(lua: *mut ffi::lua_State) -> libc::c_int {
 #[inline]
 pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGuard<L>
 where
-    F: FnOnce(LuaTable<&mut PushGuard<&mut L>>),
+    F: FnOnce(LuaTable<&mut PushGuard<&mut Lua<'lua>>>),
     L: AsMutLua<'lua>,
     T: Send + 'static + Any,
 {
-    let raw_lua = lua.as_mut_lua();
-    unsafe {
-        let typeid = TypeId::of::<T>();
-        let typeid_ptr = (&typeid as *const TypeId).cast();
-        let typeid_size = std::mem::size_of::<TypeId>();
-
+    /// This allows the compiler to not instantiate the entire function once
+    /// for each different `L` that might call the outer function.
+    #[inline(never)]
+    unsafe fn inner<'lua, T, F>(data: T, mut lua: Lua<'lua>, metatable: F)
+    where
+        F: FnOnce(LuaTable<&mut PushGuard<&mut Lua<'lua>>>),
+        T: Send + 'static + Any,
+    {
+        let raw_lua = lua.as_mut_lua();
         let lua_data = {
             let size = mem::size_of::<RawUserdata<T>>();
             ffi::lua_newuserdata(raw_lua.as_ptr(), size as libc::size_t).cast::<RawUserdata<T>>()
@@ -77,6 +78,11 @@ where
 
         // We write the `RawUserdata` block.
         ptr::write(lua_data, RawUserdata::new(Box::new(data)));
+
+        // Get TypeId of T.
+        let typeid = TypeId::of::<T>();
+        let typeid_ptr = (&typeid as *const TypeId).cast();
+        let typeid_size = std::mem::size_of::<TypeId>();
 
         // Get the metatable if one already exist
         ffi::lua_pushlstring(raw_lua.as_ptr(), typeid_ptr, typeid_size);
@@ -128,7 +134,7 @@ where
 
             // Calling the metatable closure.
             {
-                let mut guard = PushGuard { lua: &mut lua, size: 1, raw_lua };
+                let mut guard = PushGuard::new(&mut lua, 1);
                 metatable(LuaRead::lua_read(&mut guard).ok().unwrap());
                 guard.forget();
             }
@@ -140,6 +146,9 @@ where
         //| -1 userdata (data: T)
     }
 
+    let raw_lua = lua.as_mut_lua();
+    let tmp_lua = unsafe { Lua::from_existing_state(raw_lua.as_ptr(), false) };
+    unsafe { inner(data, tmp_lua, metatable) };
     PushGuard { lua, size: 1, raw_lua }
 }
 

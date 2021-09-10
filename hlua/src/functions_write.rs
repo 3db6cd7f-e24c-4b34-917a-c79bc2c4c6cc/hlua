@@ -372,7 +372,6 @@ where
 {
     // loading the object that we want to call from the Lua context
     let data_raw = unsafe { ffi::lua_touserdata(lua, ffi::lua_upvalueindex(1)) };
-    let data: &mut T = unsafe { &mut *data_raw.cast::<T>() };
 
     // creating a temporary Lua context in order to pass it to push & read functions
     let mut tmp_lua = InsideCallback { lua: unsafe { NonNull::new_unchecked(lua) } };
@@ -382,19 +381,17 @@ where
     let args = match LuaRead::lua_read_at_position(&mut tmp_lua, -arguments_count as libc::c_int) {
         // TODO: what if the user has the wrong params?
         Err(_) => {
-            let err_msg = "wrong parameter types for callback function";
-            match err_msg.push_to_lua(&mut tmp_lua) {
+            match "wrong parameter types for callback function".push_to_lua(&mut tmp_lua) {
                 Ok(p) => p.forget_internal(),
                 Err(_) => unreachable!(),
             };
-            unsafe {
-                ffi::lua_error(lua);
-            }
+            unsafe { ffi::lua_error(lua) };
             unreachable!()
         },
         Ok(a) => a,
     };
 
+    let data: &mut T = unsafe { &mut *data_raw.cast::<T>() };
     let ret_value = data.call_mut(args);
 
     // pushing back the result of the function on the stack
@@ -402,6 +399,7 @@ where
         Ok(p) => p.forget_internal(),
         Err(_) => panic!(), // TODO: wrong
     };
+
     nb as libc::c_int
 }
 
