@@ -68,6 +68,9 @@ enable_table_bump = []
 # usually more costly than the occasional stall when crossing a cache-line.
 no_unaligned = []
 
+# TODO: Explain - related to the flag below
+no_unwind = []
+
 # See lj_err.c
 unwind_external = []
 

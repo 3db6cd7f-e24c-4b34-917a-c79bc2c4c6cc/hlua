@@ -23,6 +23,7 @@ fn get_defines() -> Vec<&'static str> {
         #[cfg(feature = "enable_lua52compat")]            "LUAJIT_ENABLE_LUA52COMPAT",
         #[cfg(feature = "enable_table_bump")]             "LUAJIT_ENABLE_TABLE_BUMP",
         #[cfg(feature = "no_unaligned")]                  "LUAJIT_NO_UNALIGNED",
+        #[cfg(feature = "no_unwind")]                     "LUAJIT_NO_UNWIND", 
         #[cfg(feature = "unwind_external")]               "LUAJIT_UNWIND_EXTERNAL",
         #[cfg(feature = "security_mcode_insecure")]       "LUAJIT_SECURITY_MCODE=0",
         #[cfg(feature = "security_mcode_secure")]         "LUAJIT_SECURITY_MCODE=1",
@@ -60,27 +61,23 @@ fn get_defines() -> Vec<&'static str> {
     ]
 }
 
-fn get_env_args() -> Vec<(&'static str, &'static str)> {
+fn get_env_args() -> Vec<(&'static str, String)> {
     #[allow(unreachable_patterns)]
-    let arg = match true {
-        // jit + ffi
-        #[cfg(not(any(feature = "disable_ffi", feature = "disable_jit")))]
-        _ => "-D JIT -D FFI",
+    let mut flags = String::from(" ");
 
-        // neither
-        #[cfg(all(feature = "disable_ffi", feature = "disable_jit"))]
-        _ => " ",
+    if cfg!(not(feature = "disable_ffi")) {
+        flags.push_str("-D FFI ");
+    }
+    
+    if cfg!(not(feature = "disable_jit")) {
+        flags.push_str("-D JIT ");
+    }
+    
+    if cfg!(feature = "no_unwind") {
+        flags.push_str("-D NO_UNWIND ");
+    }
 
-        // just jit
-        #[cfg(feature = "disable_ffi")]
-        _ => "-D JIT",
-
-        // just ffi
-        #[cfg(feature = "disable_jit")]
-        _ => "-D FFI",
-    };
-
-    vec![("DASMFLAGS_OPTS", arg)]
+    vec![("DASMFLAGS_OPTS", flags)]
 }
 
 fn main() {
@@ -185,7 +182,7 @@ fn build_luajit(luajit_dir: &str, out_dir: &str, src_dir: &str) -> &'static str 
     const LIB_NAME: &'static str = "luajit";
     let lib_path = format!("{}/lib{}.a", &src_dir, LIB_NAME);
     dbg!(&lib_path);
-    if !std::fs::metadata(&lib_path).is_ok() {
+    if std::fs::metadata(&lib_path).is_err() {
         let mut copy_options = CopyOptions::new();
         copy_options.overwrite = true;
         dir::copy(&luajit_dir, &out_dir, &copy_options).unwrap();
