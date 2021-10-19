@@ -1,6 +1,6 @@
 /*
 ** JIT library.
-** Copyright (C) 2005-2020 Mike Pall. See Copyright Notice in luajit.h
+** Copyright (C) 2005-2021 Mike Pall. See Copyright Notice in luajit.h
 */
 
 #define lib_jit_c
@@ -150,10 +150,10 @@ LJLIB_CF(jit_attach)
 
 LJLIB_CF(jit_prngstate)
 {
-  int i;
   GCtab *cur = lj_tab_new(L, 8, 0);
 
 #if LJ_HASJIT
+  int i;
   jit_State *J = L2J(L);
 
   /* The old state. */
@@ -164,28 +164,38 @@ LJLIB_CF(jit_prngstate)
 
   /* We need to set new state using the input array. */
   if (L->base < L->top && !tvisnil(L->base)) {
-    GCtab *t = lj_lib_checktab(L, 1);
     PRNGState prng;
-    int i = 1, len = lj_tab_len(t);
+    if (tvisnumber(L->base)) {
+      TValue *o = L->base;
 
-    /* The input array must have at most 8 elements. */
-    if (len > 8)
-      lj_err_arg(L, 1, LJ_ERR_PRNGSTATE);
-
-    for (i = 1; i <= len; i++) {
-      cTValue *v = lj_tab_getint(t, i);
-
-      if (!tvisint(v) && (!tvisnum(v) || (double)(uint32_t)numV(v) != numV(v)))
+      if (!tvisint(o) && ((double)(uint32_t)numV(o) != numV(o)))
         lj_err_arg(L, 1, LJ_ERR_PRNGSTATE);
 
-      if (i & 1)
-	prng.u[(i-1)/2] = numberVint(v);
-      else
-	prng.u[(i-1)/2] = prng.u[(i-1)/2] | ((uint64_t)numberVint(v) << 32);
-    }
+      prng.u[0] = numberVint(o);
+      for (i = 1; i < 4; i++)
+        prng.u[i] = 0;
+    } else {
+      GCtab *t = lj_lib_checktab(L, 1);
+      int i = 1, len = lj_tab_len(t);
 
-    for (i /= 2; i < 4; i++)
-      prng.u[i] = 0;
+      /* The input array must have at most 8 elements. */
+      if (len > 8)
+        lj_err_arg(L, 1, LJ_ERR_PRNGSTATE);
+
+      for (i = 1; i <= len; i++) {
+        cTValue *v = lj_tab_getint(t, i);
+
+        if (!tvisint(v) && (!tvisnum(v) || (double)(uint32_t)numV(v) != numV(v)))
+          lj_err_arg(L, 1, LJ_ERR_PRNGSTATE);
+
+        if (i & 1)
+          prng.u[(i-1)/2] = numberVint(v);
+        else
+          prng.u[(i-1)/2] = prng.u[(i-1)/2] | ((uint64_t)numberVint(v) << 32);
+      }
+      for (i /= 2; i < 4; i++)
+        prng.u[i] = 0;
+    }
 
     /* Re-initialize the JIT prng. */
     J->prng = prng;
@@ -402,11 +412,7 @@ LJLIB_CF(jit_util_tracek)
       ir = &T->ir[ir->op1];
     }
 #if LJ_HASFFI
-    if (ir->o == IR_KINT64 && !ctype_ctsG(G(L))) {
-      ptrdiff_t oldtop = savestack(L, L->top);
-      luaopen_ffi(L);  /* Load FFI library on-demand. */
-      L->top = restorestack(L, oldtop);
-    }
+    if (ir->o == IR_KINT64) ctype_loadffi(L);
 #endif
     lj_ir_kvalue(L, L->top-2, ir);
     setintV(L->top-1, (int32_t)irt_type(ir->t));

@@ -1,6 +1,6 @@
 /*
 ** String handling.
-** Copyright (C) 2005-2020 Mike Pall. See Copyright Notice in luajit.h
+** Copyright (C) 2005-2021 Mike Pall. See Copyright Notice in luajit.h
 */
 
 #define lj_str_c
@@ -12,7 +12,6 @@
 #include "lj_str.h"
 #include "lj_char.h"
 #include "lj_prng.h"
-#include "x64/src/lj_str_hash_x64.h"
 
 /* -- String helpers ------------------------------------------------------ */
 
@@ -83,9 +82,22 @@ int lj_str_haspattern(GCstr *s)
 
 /* -- String hashing ------------------------------------------------------ */
 
-#ifndef ARCH_HASH_SPARSE
+#ifdef LJ_HAS_OPTIMISED_HASH
+static StrHash hash_sparse_def (uint64_t, const char *, MSize);
+str_sparse_hashfn hash_sparse = hash_sparse_def;
+#if LUAJIT_SECURITY_STRHASH
+static StrHash hash_dense_def(uint64_t, StrHash, const char *, MSize);
+str_dense_hashfn hash_dense = hash_dense_def;
+#endif
+#else
+#define hash_sparse hash_sparse_def
+#if LUAJIT_SECURITY_STRHASH
+#define hash_dense hash_dense_def
+#endif
+#endif
+
 /* Keyed sparse ARX string hash. Constant time. */
-static StrHash hash_sparse(uint64_t seed, const char *str, MSize len)
+static StrHash hash_sparse_def(uint64_t seed, const char *str, MSize len)
 {
   /* Constants taken from lookup3 hash by Bob Jenkins. */
   StrHash a, b, h = len ^ (StrHash)seed;
@@ -106,12 +118,11 @@ static StrHash hash_sparse(uint64_t seed, const char *str, MSize len)
   h ^= b; h -= lj_rol(b, 16);
   return h;
 }
-#endif
 
-#if LUAJIT_SECURITY_STRHASH && !defined(ARCH_HASH_DENSE)
+#if LUAJIT_SECURITY_STRHASH
 /* Keyed dense ARX string hash. Linear time. */
-static LJ_NOINLINE StrHash hash_dense(uint64_t seed, StrHash h,
-				      const char *str, MSize len)
+static LJ_NOINLINE StrHash hash_dense_def(uint64_t seed, StrHash h,
+					  const char *str, MSize len)
 {
   StrHash b = lj_bswap(lj_rol(h ^ (StrHash)(seed >> 32), 4));
   if (len > 12) {
@@ -295,8 +306,21 @@ static GCstr *lj_str_alloc(lua_State *L, const char *str, MSize len,
   s->gct = ~LJ_TSTR;
   s->len = len;
   s->hash = hash;
+
+#ifdef LUAJIT_TEST_FIXED_ORDER
+  /* If you need predictable key iteration order in lua tables (eg: in data driven test),
+   * build with
+   * "XCFLAGS=-DLUAJIT_TEST_FIXED_ORDER=1 -DLUAJIT_SECURITY_STRID=0
+   * -DLUAJIT_SECURITY_STRHASH=0 -DLUAJIT_SECURITY_PRNG=0 -DLUAJIT_SECURITY_MCODE=0"
+   *
+   * This is for testing only. Please don't use it in production builds.
+   */
+  s->sid = hash;
+#else
 #ifndef STRID_RESEED_INTERVAL
-  s->sid = g->str.id++;
+  /* s->sid = g->str.id++; */
+  /* if use g->str.id++ as sid, the order of the tab will be indeterminate. */
+  s->sid = hash;
 #elif STRID_RESEED_INTERVAL
   if (!g->str.idreseed--) {
     uint64_t r = lj_prng_u64(&g->prng);
@@ -306,6 +330,7 @@ static GCstr *lj_str_alloc(lua_State *L, const char *str, MSize len,
   s->sid = g->str.id++;
 #else
   s->sid = (StrID)lj_prng_u64(&g->prng);
+#endif
 #endif
   s->reserved = 0;
   s->hashalg = (uint8_t)hashalg;

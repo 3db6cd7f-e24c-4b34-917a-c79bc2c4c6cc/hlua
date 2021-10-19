@@ -88,7 +88,7 @@ Usage:
 local isarray = require "table.isarray"
 
 print(isarray{"a", true, 3.14})  -- true
-print(isarray{"dog" = 3})  -- false
+print(isarray{dog = 3})  -- false
 print(isarray{})  -- true
 ```
 
@@ -153,11 +153,20 @@ When the `state` argument is non-nil, it is expected to be an array of up to 8
 unsigned Lua numbers, each with value less than 2\*\*32-1. This will set the
 current PRNG state and return the state that was overridden.
 
+**Note:** For backward compatibility, `state` argument can also be an unsigned
+Lua number less than 2\*\*32-1.
+
+**Note:** When the `state` argument is an array and less than 8 numbers, or the
+`state` is a number, the remaining positions are filled with zeros.
+
 Usage:
 
 ```lua
 local state = jit.prngstate()
-local oldstate = jit.prngstate(123456)
+local oldstate = jit.prngstate{ a, b, c, ... }
+
+jit.prngstate(32) -- {32, 0, 0, 0, 0, 0, 0, 0}
+jit.prngstate{432, 23, 50} -- {432, 23, 50, 0, 0, 0, 0, 0}
 ```
 
 **Note:** This API has no effect if LuaJIT is compiled with
