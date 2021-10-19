@@ -68,11 +68,11 @@ fn get_env_args() -> Vec<(&'static str, String)> {
     if cfg!(not(feature = "disable_ffi")) {
         flags.push_str("-D FFI ");
     }
-    
+
     if cfg!(not(feature = "disable_jit")) {
         flags.push_str("-D JIT ");
     }
-    
+
     if cfg!(feature = "no_unwind") {
         flags.push_str("-D NO_UNWIND ");
     }
@@ -102,10 +102,6 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", src_dir);
     println!("cargo:rustc-link-lib=static={}", lib_name);
     println!("cargo:rerun-if-changed={}", wrapper_name);
-
-    // if cfg!(target_os = "macos") && cfg!(target_pointer_width = "64") {
-    //     // RUSTFLAGS='-C link-args=-pagezero_size 10000 -image_base 100000000'
-    // }
 }
 
 fn generate_bindings(header_name: &str) {
