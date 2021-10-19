@@ -493,28 +493,11 @@ impl<'lua> Lua<'lua> {
     ///
     /// # Panic
     ///
-    /// The function panics if the underlying call to `lua_newstate` fails
+    /// The function panics if the underlying call to `luaL_newstate` fails
     /// (which indicates lack of memory).
     #[inline]
     #[must_use]
     pub fn new() -> Lua<'lua> {
-        // this alloc function is required to create a lua state.
-        extern "C" fn alloc(
-            _ud: *mut libc::c_void,
-            ptr: *mut libc::c_void,
-            _osize: libc::size_t,
-            nsize: libc::size_t,
-        ) -> *mut libc::c_void {
-            unsafe {
-                if nsize == 0 {
-                    libc::free(ptr.cast());
-                    std::ptr::null_mut()
-                } else {
-                    libc::realloc(ptr, nsize)
-                }
-            }
-        }
-
         // called whenever lua encounters an unexpected error.
         extern "C" fn panic(lua: *mut ffi::lua_State) -> libc::c_int {
             let err = unsafe { ffi::lua_tostring(lua, -1) };
@@ -523,8 +506,8 @@ impl<'lua> Lua<'lua> {
             panic!("PANIC: unprotected error in call to Lua API ({})\n", err);
         }
 
-        let lua = NonNull::new(unsafe { ffi::lua_newstate(Some(alloc), std::ptr::null_mut()) });
-        let lua = lua.expect("lua_newstate failed");
+        let lua = NonNull::new(unsafe { ffi::luaL_newstate() });
+        let lua = lua.expect("luaL_newstate failed");
 
         unsafe { ffi::lua_atpanic(lua.as_ptr(), Some(panic)) };
 
