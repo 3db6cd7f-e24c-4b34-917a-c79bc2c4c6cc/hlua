@@ -397,6 +397,7 @@ pub trait PushOne<L>: Push<L> {}
 /// Will be replaced with `!` eventually (https://github.com/rust-lang/rust/issues/35121).
 #[derive(Debug, Copy, Clone)]
 pub enum Void {}
+// TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
 impl fmt::Display for Void {
     fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
@@ -782,9 +783,7 @@ impl<'lua> Lua<'lua> {
         V: LuaRead<PushGuard<&'l mut Lua<'lua>>>,
     {
         let index = CString::new(index.borrow()).unwrap();
-        unsafe {
-            ffi::lua_getglobal(self.lua.as_ptr(), index.as_ptr());
-        }
+        unsafe { ffi::lua_getglobal(self.lua.as_ptr(), index.as_ptr()) };
         if unsafe { ffi::lua_isnil(self.as_lua().as_ptr(), -1) } {
             let raw_lua = self.as_lua();
             let _guard = PushGuard { lua: self, size: 1, raw_lua };
@@ -803,9 +802,7 @@ impl<'lua> Lua<'lua> {
         V: LuaRead<PushGuard<Lua<'lua>>>,
     {
         let index = CString::new(index.borrow()).unwrap();
-        unsafe {
-            ffi::lua_getglobal(self.lua.as_ptr(), index.as_ptr());
-        }
+        unsafe { ffi::lua_getglobal(self.lua.as_ptr(), index.as_ptr()) };
         let is_nil = unsafe { ffi::lua_isnil(self.as_lua().as_ptr(), -1) };
         let raw_lua = self.as_lua();
         let guard = PushGuard { lua: self, size: 1, raw_lua };

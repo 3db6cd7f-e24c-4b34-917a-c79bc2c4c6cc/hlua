@@ -1,3 +1,5 @@
+use luajit2_sys::LUA_TNIL;
+
 use crate::AsMutLua;
 
 use crate::{LuaRead, LuaTable, Push, PushGuard, PushOne, Void};
@@ -40,7 +42,7 @@ impl<'lua, L> Push<L> for AnyLuaValue
 where
     L: AsMutLua<'lua>,
 {
-    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void;
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -65,9 +67,7 @@ where
                 Ok(PushGuard { lua, size, raw_lua })
             },
             AnyLuaValue::LuaNil => {
-                unsafe {
-                    ffi::lua_pushnil(raw_lua.as_ptr());
-                }
+                unsafe { ffi::lua_pushnil(raw_lua.as_ptr()) };
                 Ok(PushGuard { lua, size: 1, raw_lua })
             }, // Use ffi::lua_pushnil.
             AnyLuaValue::LuaOther => panic!("can't push a AnyLuaValue of type Other"),
@@ -140,7 +140,7 @@ impl<'lua, L> Push<L> for AnyHashableLuaValue
 where
     L: AsMutLua<'lua>,
 {
-    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void;
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -164,9 +164,7 @@ where
                 Ok(PushGuard { lua, size, raw_lua })
             },
             AnyHashableLuaValue::LuaNil => {
-                unsafe {
-                    ffi::lua_pushnil(raw_lua.as_ptr());
-                }
+                unsafe { ffi::lua_pushnil(raw_lua.as_ptr()) };
                 Ok(PushGuard { lua, size: 1, raw_lua })
             }, // Use ffi::lua_pushnil.
             AnyHashableLuaValue::LuaOther => {
@@ -185,6 +183,7 @@ where
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<AnyHashableLuaValue, L> {
         let data_type = unsafe { ffi::lua_type(lua.as_lua().as_ptr(), index) };
+
         if data_type == ffi::LUA_TSTRING {
             let lua = match LuaRead::lua_read_at_position(lua, index) {
                 Ok(v) => return Ok(AnyHashableLuaValue::LuaString(v)),
@@ -216,7 +215,7 @@ where
                 Err(lua) => lua,
             };
 
-            if unsafe { ffi::lua_isnil(lua.as_lua().as_ptr(), index) } {
+            if data_type == LUA_TNIL {
                 return Ok(AnyHashableLuaValue::LuaNil);
             }
 
@@ -224,9 +223,7 @@ where
                 LuaRead::lua_read_at_position(&mut lua as &mut dyn AsMutLua<'lua>, index);
 
             match table {
-                Ok(mut v) => Ok(AnyHashableLuaValue::LuaArray(
-                    v.iter::<AnyHashableLuaValue, AnyHashableLuaValue>().flatten().collect(),
-                )),
+                Ok(mut v) => Ok(AnyHashableLuaValue::LuaArray(v.iter().flatten().collect())),
                 Err(_) => Ok(AnyHashableLuaValue::LuaOther),
             }
         }

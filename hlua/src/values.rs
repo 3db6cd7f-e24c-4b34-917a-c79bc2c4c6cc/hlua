@@ -5,7 +5,7 @@ use crate::{AnyLuaString, AnyLuaValue, AsLua, AsMutLua, LuaRead, Push, PushGuard
 macro_rules! integer_impl(
     ($t:ident) => (
         impl<'lua, L> Push<L> for $t where L: AsMutLua<'lua> {
-            type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+            type Err = Void;
 
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -40,7 +40,7 @@ integer_impl!(i32);
 macro_rules! unsigned_impl(
     ($t:ident) => (
         impl<'lua, L> Push<L> for $t where L: AsMutLua<'lua> {
-            type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+            type Err = Void;
 
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -85,7 +85,7 @@ unsigned_impl!(u32);
 macro_rules! numeric_impl(
     ($t:ident) => (
         impl<'lua, L> Push<L> for $t where L: AsMutLua<'lua> {
-            type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+            type Err = Void;
 
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -119,7 +119,7 @@ impl<'lua, L> Push<L> for String
 where
     L: AsMutLua<'lua>,
 {
-    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void;
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -166,7 +166,7 @@ impl<'lua, L> Push<L> for AnyLuaString
 where
     L: AsMutLua<'lua>,
 {
-    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void;
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -208,7 +208,7 @@ impl<'lua, 's, L> Push<L> for &'s str
 where
     L: AsMutLua<'lua>,
 {
-    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void;
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -294,7 +294,7 @@ impl<'lua, L> Push<L> for bool
 where
     L: AsMutLua<'lua>,
 {
-    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void;
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -325,12 +325,11 @@ impl<'lua, L> Push<L> for ()
 where
     L: AsMutLua<'lua>,
 {
-    type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+    type Err = Void;
 
     #[inline]
     fn push_to_lua(self, lua: L) -> Result<PushGuard<L>, (Void, L)> {
         let raw_lua = lua.as_lua();
-
         Ok(PushGuard { lua, size: 0, raw_lua })
     }
 }

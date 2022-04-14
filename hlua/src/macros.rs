@@ -50,11 +50,7 @@ macro_rules! implement_lua_read {
             ) -> Result<&'s mut $ty, &'b mut &'c mut $crate::InsideCallback> {
                 let ptr_lua = lua as *mut &mut $crate::InsideCallback;
                 let deref_lua = unsafe { ::std::ptr::read(ptr_lua) };
-                let res = Self::lua_read_at_position(deref_lua, index);
-                match res {
-                    Ok(x) => Ok(x),
-                    _ => Err(lua),
-                }
+                Self::lua_read_at_position(deref_lua, index).map_err(|_| lua)
             }
         }
 
@@ -67,11 +63,7 @@ macro_rules! implement_lua_read {
             ) -> Result<&'s $ty, &'b mut &'c mut $crate::InsideCallback> {
                 let ptr_lua = lua as *mut &mut $crate::InsideCallback;
                 let deref_lua = unsafe { ::std::ptr::read(ptr_lua) };
-                let res = Self::lua_read_at_position(deref_lua, index);
-                match res {
-                    Ok(x) => Ok(x),
-                    _ => Err(lua),
-                }
+                Self::lua_read_at_position(deref_lua, index).map_err(|_| lua)
             }
         }
     };

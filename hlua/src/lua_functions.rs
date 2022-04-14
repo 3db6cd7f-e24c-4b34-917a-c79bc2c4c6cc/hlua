@@ -3,6 +3,7 @@ use std::{
     fmt,
     io::{Cursor, Error as IoError, Read},
     mem,
+    ptr::addr_of_mut,
 };
 
 use crate::{AsLua, AsMutLua};
@@ -101,14 +102,14 @@ where
                     let data: &mut ReadData<R> = &mut *data;
 
                     if data.triggered_error.is_some() {
-                        (*size) = 0;
+                        *size = 0;
                         return data.buffer.as_ptr().cast::<libc::c_char>();
                     }
 
                     match data.reader.read(&mut data.buffer) {
-                        Ok(len) => (*size) = len as libc::size_t,
+                        Ok(len) => *size = len as libc::size_t,
                         Err(e) => {
-                            (*size) = 0;
+                            *size = 0;
                             data.triggered_error = Some(e);
                         },
                     };
@@ -122,7 +123,7 @@ where
                 let code = ffi::lua_load(
                     raw_lua.as_ptr(),
                     Some(reader::<R>),
-                    (&mut read_data as *mut ReadData<_>).cast(),
+                    addr_of_mut!(read_data).cast(),
                     b"chunk\0".as_ptr().cast(),
                     #[cfg(any(feature = "_luaapi_52", feature = "_luaapi_54"))]
                     std::ptr::null(),
@@ -139,7 +140,7 @@ where
                 return Ok(pushed_value);
             }
 
-            let error_msg: String = LuaRead::lua_read(&pushed_value)
+            let error_msg = LuaRead::lua_read(&pushed_value)
                 .ok()
                 .expect("can't find error message at the top of the Lua stack");
 
@@ -281,7 +282,7 @@ where
             },
             ffi::LUA_ERRMEM => panic!("lua_pcall returned LUA_ERRMEM"),
             ffi::LUA_ERRRUN => {
-                let error_msg: String = LuaRead::lua_read(pushed_value)
+                let error_msg = LuaRead::lua_read(pushed_value)
                     .ok()
                     .expect("can't find error message at the top of the Lua stack");
                 Err(LuaFunctionCallError::LuaError(LuaError::ExecutionError(error_msg)))

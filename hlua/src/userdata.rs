@@ -3,7 +3,7 @@ use std::{
     marker::PhantomData,
     mem,
     ops::{Deref, DerefMut},
-    ptr,
+    ptr::{self, addr_of},
 };
 
 use crate::{AsLua, AsMutLua, InsideCallback, LuaContext, LuaRead, LuaTable, Push, PushGuard};
@@ -98,7 +98,7 @@ where
 
         // Get TypeId of T.
         let typeid = TypeId::of::<T>();
-        let typeid_ptr = (&typeid as *const TypeId).cast();
+        let typeid_ptr = addr_of!(typeid).cast();
         let typeid_size = std::mem::size_of::<TypeId>();
 
         // Get the metatable if one already exist

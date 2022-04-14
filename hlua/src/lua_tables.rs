@@ -151,10 +151,10 @@ where
 
             let guard = PushGuard { lua: me, size: 1, raw_lua };
 
-            if ffi::lua_isnil(raw_lua.as_ptr(), -1) {
-                None
-            } else {
+            if !ffi::lua_isnil(raw_lua.as_ptr(), -1) {
                 LuaRead::lua_read(guard).ok()
+            } else {
+                None
             }
         }
     }
@@ -176,10 +176,10 @@ where
 
             let guard = PushGuard { lua: self, size: 1, raw_lua };
 
-            if ffi::lua_isnil(raw_lua.as_ptr(), -1) {
-                Err(guard)
-            } else {
+            if !ffi::lua_isnil(raw_lua.as_ptr(), -1) {
                 LuaRead::lua_read(guard)
+            } else {
+                Err(guard)
             }
         }
     }
@@ -231,9 +231,7 @@ where
                     assert_eq!(guard.size, 1);
                     guard
                 },
-                Err((err, _)) => {
-                    return Err(CheckedSetError::KeyPushError(err));
-                },
+                Err((err, _)) => return Err(CheckedSetError::KeyPushError(err)),
             };
 
             match value.push_to_lua(&mut guard) {
@@ -241,9 +239,7 @@ where
                     assert_eq!(pushed.size, 1);
                     pushed.forget()
                 },
-                Err((err, _)) => {
-                    return Err(CheckedSetError::ValuePushError(err));
-                },
+                Err((err, _)) => return Err(CheckedSetError::ValuePushError(err)),
             };
 
             guard.forget();
@@ -276,7 +272,6 @@ where
             };
 
             ffi::lua_settable(me.as_mut_lua().as_ptr(), me.offset(-2));
-
             me.get(index).unwrap()
         }
     }
@@ -438,13 +433,13 @@ where
 
             // Reading the key and value.
             let mut me = self;
-            let key = LuaRead::lua_read_at_position(&mut me, -2).ok();
-            let value = LuaRead::lua_read_at_position(&mut me, -1).ok();
+            let k = LuaRead::lua_read_at_position(&mut me, -2).ok();
+            let v = LuaRead::lua_read_at_position(&mut me, -1).ok();
 
             // Removing the value, leaving only the key on the top of the stack.
             ffi::lua_pop(raw_lua.as_ptr(), 1);
 
-            match (key, value) {
+            match (k, v) {
                 (Some(key), Some(value)) => Some(Some((key, value))),
                 _ => Some(None),
             }

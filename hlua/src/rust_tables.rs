@@ -23,7 +23,9 @@ where
     for (elem, index) in iterator.zip(1..) {
         let size = match elem.push_to_lua(&mut lua) {
             Ok(pushed) => pushed.forget_internal(),
-            Err((_err, _lua)) => panic!(), // TODO: wrong   return Err((err, lua)),      // FIXME: destroy the temporary table
+            // TODO: wrong   return Err((err, lua)),
+            // FIXME: destroy the temporary table
+            Err((_err, _lua)) => panic!(),
         };
 
         match size {
@@ -54,7 +56,9 @@ where
     for elem in iterator {
         let size = match elem.push_to_lua(&mut lua) {
             Ok(pushed) => pushed.forget_internal(),
-            Err((_err, _lua)) => panic!(), // TODO: wrong   return Err((err, lua)),      // FIXME: destroy the temporary table
+            // TODO: wrong   return Err((err, lua)),
+            // FIXME: destroy the temporary table
+            Err((_err, _lua)) => panic!(),
         };
 
         match size {
@@ -285,17 +289,13 @@ where
                 break;
             }
 
-            let key = {
-                let maybe_key: Option<AnyHashableLuaValue> =
-                    LuaRead::lua_read_at_position(&mut me, -2).ok();
-                match maybe_key {
-                    None => {
-                        // Cleaning up after ourselves
-                        unsafe { ffi::lua_pop(raw_lua.as_ptr(), 2) };
-                        return Err(me);
-                    },
-                    Some(k) => k,
-                }
+            let key = match LuaRead::lua_read_at_position(&mut me, -2).ok() {
+                Some(k) => k,
+                None => {
+                    // Cleaning up after ourselves
+                    unsafe { ffi::lua_pop(raw_lua.as_ptr(), 2) };
+                    return Err(me);
+                },
             };
 
             let value: AnyLuaValue = LuaRead::lua_read_at_position(&mut me, -1).ok().unwrap();
