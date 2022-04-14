@@ -271,6 +271,20 @@ pub unsafe trait AsMutLua<'lua>: AsLua<'lua> {
 /// in Rust code to be out of sync with the Lua stack.
 type LuaContext = NonNull<ffi::lua_State>;
 
+unsafe impl<'a, 'lua> AsLua<'lua> for LuaContext {
+    #[inline]
+    fn as_lua(&self) -> LuaContext {
+        *self
+    }
+}
+
+unsafe impl<'lua> AsMutLua<'lua> for LuaContext {
+    #[inline]
+    fn as_mut_lua(&mut self) -> LuaContext {
+        *self
+    }
+}
+
 unsafe impl<'a, 'lua> AsLua<'lua> for Lua<'lua> {
     #[inline]
     fn as_lua(&self) -> LuaContext {
