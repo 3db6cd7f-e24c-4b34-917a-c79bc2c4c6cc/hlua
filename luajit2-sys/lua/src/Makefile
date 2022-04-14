@@ -7,7 +7,7 @@
 # Also works with MinGW and Cygwin on Windows.
 # Please check msvcbuild.bat for building with MSVC on Windows.
 #
-# Copyright (C) 2005-2021 Mike Pall. See Copyright Notice in luajit.h
+# Copyright (C) 2005-2022 Mike Pall. See Copyright Notice in luajit.h
 ##############################################################################
 
 MAJVER=  2
@@ -324,10 +324,7 @@ ifeq (Darwin,$(TARGET_SYS))
     $(error missing: export MACOSX_DEPLOYMENT_TARGET=XX.YY)
   endif
   TARGET_STRIP+= -x
-  # Ext. unwinding is broken on OSX/ARM64 until someone finds a fix. See #698.
-  ifneq (arm64,$(TARGET_LJARCH))
-    TARGET_XCFLAGS+= -DLUAJIT_UNWIND_EXTERNAL
-  endif
+  TARGET_XCFLAGS+= -DLUAJIT_UNWIND_EXTERNAL
   TARGET_XSHLDFLAGS= -dynamiclib -single_module -undefined dynamic_lookup -fPIC
   TARGET_DYNXLDOPTS=
   TARGET_XSHLDFLAGS+= -install_name $(TARGET_DYLIBPATH) -compatibility_version $(MAJVER).$(MINVER) -current_version $(MAJVER).$(MINVER).$(RELVER)

@@ -1,6 +1,6 @@
 /*
 ** ARM64 IR assembler (SSA IR -> machine code).
-** Copyright (C) 2005-2021 Mike Pall. See Copyright Notice in luajit.h
+** Copyright (C) 2005-2022 Mike Pall. See Copyright Notice in luajit.h
 **
 ** Contributed by Djordje Kovacevic and Stefan Pejic from RT-RK.com.
 ** Sponsored by Cisco Systems, Inc.
@@ -820,7 +820,7 @@ static void asm_href(ASMState *as, IRIns *ir, IROp merge)
     }
   } else if (irt_isaddr(kt)) {
     if (isk) {
-      int64_t kk = ((int64_t)irt_toitype(irkey->t) << 47) | irkey[1].tv.u64;
+      int64_t kk = ((int64_t)irt_toitype(kt) << 47) | irkey[1].tv.u64;
       scr = ra_allock(as, kk, allow);
     } else {
       scr = ra_scratch(as, allow);
@@ -828,7 +828,7 @@ static void asm_href(ASMState *as, IRIns *ir, IROp merge)
     rset_clear(allow, scr);
   } else {
     lj_assertA(irt_ispri(kt) && !irt_isnil(kt), "bad HREF key type");
-    type = ra_allock(as, ~((int64_t)~irt_toitype(ir->t) << 47), allow);
+    type = ra_allock(as, ~((int64_t)~irt_toitype(kt) << 47), allow);
     scr = ra_scratch(as, rset_clear(allow, type));
     rset_clear(allow, scr);
   }
@@ -877,7 +877,7 @@ static void asm_href(ASMState *as, IRIns *ir, IROp merge)
       emit_lso(as, A64I_LDRx, scr, dest, offsetof(Node, key.u64));
     }
   } else {
-    emit_nm(as, A64I_CMPw, scr, type);
+    emit_nm(as, A64I_CMPx, scr, type);
     emit_lso(as, A64I_LDRx, scr, dest, offsetof(Node, key));
   }
 
@@ -1258,7 +1258,7 @@ dotypecheck:
       lj_assertA(irt_isinteger(t) || irt_isnum(t),
 		 "bad SLOAD type %d", irt_type(t));
       emit_nm(as, A64I_CMPx | A64F_SH(A64SH_LSR, 32),
-	      ra_allock(as, LJ_TISNUM << 15, allow), tmp);
+	      ra_allock(as, (ir->op2 & IRSLOAD_KEYINDEX) ? LJ_KEYINDEX : (LJ_TISNUM << 15), allow), tmp);
     } else if (irt_isnil(t)) {
       emit_n(as, (A64I_CMNx^A64I_K12) | A64F_U12(1), tmp);
     } else if (irt_ispri(t)) {

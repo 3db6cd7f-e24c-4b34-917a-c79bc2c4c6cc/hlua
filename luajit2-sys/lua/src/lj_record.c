@@ -1,6 +1,6 @@
 /*
 ** Trace recorder (bytecode -> SSA IR).
-** Copyright (C) 2005-2021 Mike Pall. See Copyright Notice in luajit.h
+** Copyright (C) 2005-2022 Mike Pall. See Copyright Notice in luajit.h
 */
 
 #define lj_record_c
@@ -663,8 +663,11 @@ static LoopEvent rec_itern(jit_State *J, BCReg ra, BCReg rb)
 #else
   RecordIndex ix;
   /* Since ITERN is recorded at the start, we need our own loop detection. */
-  if (J->pc == J->startpc && J->cur.nins > REF_FIRST &&
+  if (J->pc == J->startpc &&
+      (J->cur.nins > REF_FIRST+1 ||
+       (J->cur.nins == REF_FIRST+1 && J->cur.ir[REF_FIRST].o != IR_PROF)) &&
       J->framedepth + J->retdepth == 0 && J->parent == 0 && J->exitno == 0) {
+    J->instunroll = 0;  /* Cannot continue unrolling across an ITERN. */
     lj_record_stop(J, LJ_TRLINK_LOOP, J->cur.traceno);  /* Looping trace. */
     return LOOPEV_ENTER;
   }
@@ -672,7 +675,8 @@ static LoopEvent rec_itern(jit_State *J, BCReg ra, BCReg rb)
   lj_snap_add(J);  /* Required to make JLOOP the first ins in a side-trace. */
   ix.tab = getslot(J, ra-2);
   ix.key = J->base[ra-1] ? J->base[ra-1] :
-	   sloadt(J, (int32_t)(ra-1), IRT_INT, IRSLOAD_KEYINDEX);
+	   sloadt(J, (int32_t)(ra-1), IRT_GUARD|IRT_INT,
+		  IRSLOAD_TYPECHECK|IRSLOAD_KEYINDEX);
   copyTV(J->L, &ix.tabv, &J->L->base[ra-2]);
   copyTV(J->L, &ix.keyv, &J->L->base[ra-1]);
   ix.idxchain = (rb < 3);  /* Omit value type check, if unused. */
@@ -2391,7 +2395,7 @@ void lj_record_ins(jit_State *J)
 
   case BC_POW:
     if (tref_isnumber_str(rb) && tref_isnumber_str(rc))
-      rc = lj_opt_narrow_pow(J, rb, rc, rbv, rcv);
+      rc = lj_opt_narrow_arith(J, rb, rc, rbv, rcv, IR_POW);
     else
       rc = rec_mm_arith(J, &ix, MM_pow);
     break;

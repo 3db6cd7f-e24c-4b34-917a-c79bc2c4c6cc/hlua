@@ -1,6 +1,6 @@
 /*
 ** IR assembler (SSA IR -> machine code).
-** Copyright (C) 2005-2021 Mike Pall. See Copyright Notice in luajit.h
+** Copyright (C) 2005-2022 Mike Pall. See Copyright Notice in luajit.h
 */
 
 #define lj_asm_c
@@ -847,7 +847,8 @@ static void ra_destpair(ASMState *as, IRIns *ir)
   if (destlo == RID_RETHI) {
     if (desthi == RID_RETLO) {
 #if LJ_TARGET_X86ORX64
-      *--as->mcp = REX_64IR(irx, XI_XCHGa + RID_RETHI);
+      *--as->mcp = XI_XCHGa + RID_RETHI;
+      if (LJ_64 && irt_is64(irx->t)) *--as->mcp = 0x48;
 #else
       emit_movrr(as, irx, RID_RETHI, RID_TMP);
       emit_movrr(as, irx, RID_RETLO, RID_RETHI);
@@ -1022,13 +1023,13 @@ static void asm_snap_prep(ASMState *as)
 static void asm_snap_prev(ASMState *as)
 {
   if (as->curins < as->snapref) {
-    ptrdiff_t ofs = as->mctoporig - as->mcp;
+    uintptr_t ofs = (uintptr_t)(as->mctoporig - as->mcp);
     if (ofs >= 0x10000) lj_trace_err(as->J, LJ_TRERR_MCODEOV);
     do {
       if (as->snapno == 0) return;
       as->snapno--;
       as->snapref = as->T->snap[as->snapno].ref;
-      as->T->snap[as->snapno].mcofs = ofs;  /* Remember mcode offset. */
+      as->T->snap[as->snapno].mcofs = (uint16_t)ofs;  /* Remember mcode ofs. */
     } while (as->curins < as->snapref);  /* May have no ins inbetween. */
     as->snapalloc = 1;
   }
@@ -1672,7 +1673,6 @@ static void asm_loop(ASMState *as)
 #if !LJ_SOFTFP32
 #if !LJ_TARGET_X86ORX64
 #define asm_ldexp(as, ir)	asm_callid(as, ir, IRCALL_ldexp)
-#define asm_fppowi(as, ir)	asm_callid(as, ir, IRCALL_lj_vm_powi)
 #endif
 
 static void asm_pow(ASMState *as, IRIns *ir)
@@ -1683,10 +1683,7 @@ static void asm_pow(ASMState *as, IRIns *ir)
 					  IRCALL_lj_carith_powu64);
   else
 #endif
-  if (irt_isnum(IR(ir->op2)->t))
-    asm_callid(as, ir, IRCALL_pow);
-  else
-    asm_fppowi(as, ir);
+  asm_callid(as, ir, IRCALL_pow);
 }
 
 static void asm_div(ASMState *as, IRIns *ir)
