@@ -1,0 +1,9 @@
+{
+    "rust-analyzer.cargo.features": [
+        // For RA to work correctly, activate one of the features below.
+
+        "luajit2",
+        // "lua52",
+        // "lua54",
+    ]
+}
