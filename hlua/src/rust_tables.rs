@@ -1,12 +1,23 @@
 use crate::any::{AnyHashableLuaValue, AnyLuaValue};
 
-use crate::{AsMutLua, LuaRead, Push, PushGuard, PushOne, TuplePushError};
+use crate::{AsMutLua, LuaContext, LuaRead, Push, PushGuard, PushOne, TuplePushError};
 
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
     iter,
 };
+
+unsafe fn table_len<'a>(lua: LuaContext, index: libc::c_int) -> usize {
+    match () {
+        #[cfg(feature = "_luaapi_51")]
+        () => ffi::lua_objlen(lua.as_ptr(), index),
+        #[cfg(feature = "_luaapi_52")]
+        () => ffi::lua_rawlen(lua.as_ptr(), index),
+        #[cfg(feature = "_luaapi_54")]
+        () => ffi::lua_rawlen(lua.as_ptr(), index),
+    }
+}
 
 #[inline]
 fn push_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, (E, L)>
@@ -131,29 +142,23 @@ where
 {
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
         let mut me = lua;
-        let raw_lua = me.as_mut_lua().as_ptr();
+        let raw_lua = me.as_mut_lua().as_mut_lua();
 
-        let len = match () {
-            #[cfg(feature = "_luaapi_51")]
-            () => unsafe { ffi::lua_objlen(raw_lua, index) },
-            #[cfg(feature = "_luaapi_52")]
-            () => unsafe { ffi::lua_rawlen(raw_lua, index) },
-            #[cfg(feature = "_luaapi_54")]
-            () => unsafe { ffi::lua_rawlen(raw_lua, index) },
-        };
+        if unsafe { !ffi::lua_istable(raw_lua.as_ptr(), index) } {
+            return Err(me);
+        }
 
-        unsafe { ffi::lua_pushnil(raw_lua) };
+        let len = unsafe { table_len(raw_lua, index) };
+
         let mut vec = Vec::<T>::with_capacity(len as _);
 
         for n in 1..=len as _ {
-            // pop(length (first time) or the last item)
-            unsafe { ffi::lua_pop(raw_lua, 1) };
-
             // push(vec[n])
-            unsafe { ffi::lua_rawgeti(raw_lua, index, n) };
+            unsafe { ffi::lua_rawgeti(raw_lua.as_ptr(), index, n) };
+            let _g = unsafe { PushGuard::new(raw_lua, 1) };
 
             // if it's nil, we reached the "end"
-            if unsafe { ffi::lua_isnil(raw_lua, -1) } {
+            if unsafe { ffi::lua_isnil(raw_lua.as_ptr(), -1) } {
                 break;
             }
 
@@ -162,15 +167,9 @@ where
                 // if we succeed, add it to the output vector
                 Some(val) => vec.push(val),
                 // if not, pop the value and return Err
-                None => {
-                    unsafe { ffi::lua_pop(raw_lua, 1) };
-                    return Err(me);
-                },
+                None => return Err(me),
             }
         }
-
-        // pop the last value
-        unsafe { ffi::lua_pop(raw_lua, 1) };
 
         // return the vec
         Ok(vec)
@@ -186,17 +185,13 @@ where
         use std::mem::MaybeUninit;
 
         let mut me = lua;
-        let raw_lua = me.as_mut_lua().as_ptr();
+        let raw_lua = me.as_mut_lua().as_mut_lua();
 
-        let len = match true {
-            #[cfg(feature = "_luaapi_51")]
-            true => unsafe { ffi::lua_objlen(raw_lua, index) },
-            #[cfg(feature = "_luaapi_52")]
-            true => unsafe { ffi::lua_rawlen(raw_lua, index) },
-            #[cfg(feature = "_luaapi_54")]
-            true => unsafe { ffi::lua_rawlen(raw_lua, index) },
-            false => unreachable!(),
-        } as usize;
+        if unsafe { !ffi::lua_istable(raw_lua.as_ptr(), index) } {
+            return Err(me);
+        }
+
+        let len = unsafe { table_len(raw_lua, index) };
 
         // we can't check == since the object might have more properties than just array indices
         // we could just disallow this, but there's not really a reason to force mapping objects
@@ -204,36 +199,22 @@ where
             return Err(me);
         }
 
-        unsafe { ffi::lua_pushnil(raw_lua) };
         // TODO: Use MaybeUninit::uninit_array() once it's stabilized
         let mut arr: [MaybeUninit<T>; C] = unsafe { MaybeUninit::uninit().assume_init() };
 
         for n in 0..C as _ {
-            // pop(length (first time) or the last item)
-            unsafe { ffi::lua_pop(raw_lua, 1) };
-
             // push(vec[n])
-            unsafe { ffi::lua_rawgeti(raw_lua, index, (n + 1) as _) };
-
-            // if it's nil, we reached the "end"
-            if unsafe { ffi::lua_isnil(raw_lua, -1) } {
-                break;
-            }
+            unsafe { ffi::lua_rawgeti(raw_lua.as_ptr(), index, (n + 1) as _) };
+            let _g = unsafe { PushGuard::new(raw_lua, 1) };
 
             // try to read the top value as a T
             match T::lua_read_at_position(&mut me, -1).ok() {
                 // if we succeed, add it to the output array
                 Some(val) => arr[n] = MaybeUninit::new(val),
                 // if not, pop the value and return Err
-                None => {
-                    unsafe { ffi::lua_pop(raw_lua, 1) };
-                    return Err(me);
-                },
+                None => return Err(me),
             }
         }
-
-        // pop the last value
-        unsafe { ffi::lua_pop(raw_lua, 1) };
 
         let out = unsafe {
             // Workaround since const generics currently can't be transmuted
