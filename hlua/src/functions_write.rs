@@ -171,75 +171,7 @@ extern "C" fn closure_destructor_wrapper<T>(lua: *mut ffi::lua_State) -> libc::c
 }
 
 macro_rules! impl_function_ext {
-    () => (
-        impl<Z, R> FunctionExt<()> for Function<Z, (), R> where Z: FnMut() -> R {
-            type Output = R;
-
-            #[allow(non_snake_case)]
-            #[inline]
-            fn call_mut(&mut self, _: ()) -> Self::Output {
-                (self.function)()
-            }
-        }
-
-        impl<'lua, L, Z, R> Push<L> for Function<Z, (), R>
-                where L: AsMutLua<'lua>,
-                      Z: 'lua + FnMut() -> R,
-                      R: for<'a> Push<&'a mut InsideCallback> + 'static
-        {
-            type Err = Void;
-
-            #[inline]
-            fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
-                unsafe {
-                    let raw_lua = lua.as_mut_lua();
-
-                    // This is budget-specialization
-                    // If the function has data attached to it we keep that data
-                    let has_data = mem::size_of::<Z>().min(1);
-                    if has_data == 1 {
-                        // pushing the function pointer as a userdata
-                        let lua_data = ffi::lua_newuserdata(
-                            raw_lua.as_ptr(),
-                            mem::size_of::<Z>() as libc::size_t
-                        );
-
-                        let lua_data = lua_data.cast::<Z>();
-                        ptr::write(lua_data, self.function);
-                    }
-
-                    // Creating a metatable.
-                    ffi::lua_newtable(raw_lua.as_ptr());
-
-                    // Index "__gc" in the metatable calls the object's destructor.
-                    if mem::needs_drop::<Z>() {
-                        match "__gc".push_to_lua(&mut lua) {
-                            Ok(p) => p.forget(),
-                            Err(_) => unreachable!(),
-                        };
-
-                        ffi::lua_pushcfunction(raw_lua.as_ptr(), Some(closure_destructor_wrapper::<Z>));
-                        ffi::lua_rawset(raw_lua.as_ptr(), -3);
-                    }
-                    ffi::lua_setmetatable(raw_lua.as_ptr(), -2);
-
-                    // pushing wrapper as a closure
-                    let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(raw_lua.as_ptr(), Some(wrapper), has_data as libc::c_int);
-                    Ok(PushGuard { lua, size: 1, raw_lua })
-                }
-            }
-        }
-
-        impl<'lua, L, Z, R> PushOne<L> for Function<Z, (), R>
-                where L: AsMutLua<'lua>,
-                      Z: 'lua + FnMut() -> R,
-                      R: for<'a> Push<&'a mut InsideCallback> + 'static
-        {
-        }
-    );
-
-    ($($p:ident),+) => (
+    ($($p:ident),*) => (
         impl<Z, R $(,$p)*> FunctionExt<($($p,)*)> for Function<Z, ($($p,)*), R> where Z: FnMut($($p),*) -> R {
             type Output = R;
 
@@ -251,7 +183,7 @@ macro_rules! impl_function_ext {
             }
         }
 
-        impl<'lua, L, Z, R $(,$p: 'static)+> Push<L> for Function<Z, ($($p,)*), R>
+        impl<'lua, L, Z, R $(,$p: 'static)*> Push<L> for Function<Z, ($($p,)*), R>
                 where L: AsMutLua<'lua>,
                       Z: 'lua + FnMut($($p),*) -> R,
                       ($($p,)*): for<'p> LuaRead<&'p mut InsideCallback>,
@@ -262,9 +194,12 @@ macro_rules! impl_function_ext {
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe {
                     let raw_lua = lua.as_mut_lua();
+                    // TODO: What more exactly is Z, and do we need to ensure alignment?
+
+                    // We can skip pushing the pointer when it's zero-sized.
                     let has_data = mem::size_of::<Z>().min(1);
                     if has_data == 1 {
-                        // pushing the function pointer as a userdata
+                        // Pushing the function pointer as a userdata.
                         let lua_data = ffi::lua_newuserdata(
                             raw_lua.as_ptr(),
                             mem::size_of::<Z>() as libc::size_t
@@ -298,7 +233,7 @@ macro_rules! impl_function_ext {
             }
         }
 
-        impl<'lua, L, Z, R $(,$p: 'static)+> PushOne<L> for Function<Z, ($($p,)*), R>
+        impl<'lua, L, Z, R $(,$p: 'static)*> PushOne<L> for Function<Z, ($($p,)*), R>
                 where L: AsMutLua<'lua>,
                       Z: 'lua + FnMut($($p),*) -> R,
                       ($($p,)*): for<'p> LuaRead<&'p mut InsideCallback>,
