@@ -193,11 +193,20 @@ macro_rules! impl_function_ext {
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe {
                     let raw_lua = lua.as_mut_lua();
-                    // pushing the function pointer as a userdata
-                    let lua_data = ffi::lua_newuserdata(raw_lua.as_ptr(),
-                                                        mem::size_of::<Z>() as libc::size_t);
-                    let lua_data = lua_data.cast::<Z>();
-                    ptr::write(lua_data, self.function);
+
+                    // This is budget-specialization
+                    // If the function has data attached to it we keep that data
+                    let has_data = mem::size_of::<Z>().min(1);
+                    if has_data == 1 {
+                        // pushing the function pointer as a userdata
+                        let lua_data = ffi::lua_newuserdata(
+                            raw_lua.as_ptr(),
+                            mem::size_of::<Z>() as libc::size_t
+                        );
+
+                        let lua_data = lua_data.cast::<Z>();
+                        ptr::write(lua_data, self.function);
+                    }
 
                     // Creating a metatable.
                     ffi::lua_newtable(raw_lua.as_ptr());
@@ -216,7 +225,7 @@ macro_rules! impl_function_ext {
 
                     // pushing wrapper as a closure
                     let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(raw_lua.as_ptr(), Some(wrapper), 1);
+                    ffi::lua_pushcclosure(raw_lua.as_ptr(), Some(wrapper), has_data as libc::c_int);
                     Ok(PushGuard { lua, size: 1, raw_lua })
                 }
             }
@@ -253,11 +262,17 @@ macro_rules! impl_function_ext {
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe {
                     let raw_lua = lua.as_mut_lua();
-                    // pushing the function pointer as a userdata
-                    let lua_data = ffi::lua_newuserdata(raw_lua.as_ptr(),
-                                                        mem::size_of::<Z>() as libc::size_t);
-                    let lua_data = lua_data.cast::<Z>();
-                    ptr::write(lua_data, self.function);
+                    let has_data = mem::size_of::<Z>().min(1);
+                    if has_data == 1 {
+                        // pushing the function pointer as a userdata
+                        let lua_data = ffi::lua_newuserdata(
+                            raw_lua.as_ptr(),
+                            mem::size_of::<Z>() as libc::size_t
+                        );
+
+                        let lua_data = lua_data.cast::<Z>();
+                        ptr::write(lua_data, self.function);
+                    }
 
                     // Index "__gc" in the metatable calls the object's destructor.
                     if mem::needs_drop::<Z>() {
@@ -277,7 +292,7 @@ macro_rules! impl_function_ext {
 
                     // pushing wrapper as a closure
                     let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(raw_lua.as_ptr(), Some(wrapper), 1);
+                    ffi::lua_pushcclosure(raw_lua.as_ptr(), Some(wrapper), has_data as libc::c_int);
                     Ok(PushGuard { lua, size: 1, raw_lua })
                 }
             }
@@ -372,7 +387,10 @@ where
     R: for<'p> Push<&'p mut InsideCallback>,
 {
     // loading the object that we want to call from the Lua context
-    let data_raw = unsafe { ffi::lua_touserdata(lua, ffi::lua_upvalueindex(1)) };
+    let data_raw = match std::mem::size_of::<T>() {
+        0 => std::ptr::null_mut(), // This *should* be sound for ZSTs?
+        _ => unsafe { ffi::lua_touserdata(lua, ffi::lua_upvalueindex(1)) },
+    };
 
     // creating a temporary Lua context in order to pass it to push & read functions
     let mut tmp_lua = InsideCallback { lua: unsafe { NonNull::new_unchecked(lua) } };
