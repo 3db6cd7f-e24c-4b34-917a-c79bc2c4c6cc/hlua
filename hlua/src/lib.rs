@@ -148,6 +148,7 @@ pub use userdata::{push_userdata, read_userdata, UserdataOnStack};
 pub use values::StringInLua;
 
 mod any;
+mod ffix;
 mod functions_write;
 mod lua_functions;
 mod lua_tables;

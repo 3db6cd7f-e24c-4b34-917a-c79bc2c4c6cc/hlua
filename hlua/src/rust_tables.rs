@@ -1,23 +1,12 @@
 use crate::any::{AnyHashableLuaValue, AnyLuaValue};
 
-use crate::{AsMutLua, LuaContext, LuaRead, Push, PushGuard, PushOne, TuplePushError};
+use crate::{ffix, AsMutLua, LuaRead, Push, PushGuard, PushOne, TuplePushError};
 
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
     iter,
 };
-
-unsafe fn table_len<'a>(lua: LuaContext, index: libc::c_int) -> usize {
-    match () {
-        #[cfg(feature = "_luaapi_51")]
-        () => ffi::lua_objlen(lua.as_ptr(), index),
-        #[cfg(feature = "_luaapi_52")]
-        () => ffi::lua_rawlen(lua.as_ptr(), index),
-        #[cfg(feature = "_luaapi_54")]
-        () => ffi::lua_rawlen(lua.as_ptr(), index),
-    }
-}
 
 #[inline]
 fn push_iter<'lua, L, V, I, E>(mut lua: L, iterator: I) -> Result<PushGuard<L>, (E, L)>
@@ -148,7 +137,7 @@ where
             return Err(me);
         }
 
-        let len = unsafe { table_len(raw_lua, index) };
+        let len = unsafe { ffix::lua_rawlen(raw_lua, index) };
 
         let mut vec = Vec::<T>::with_capacity(len as _);
 
@@ -191,7 +180,7 @@ where
             return Err(me);
         }
 
-        let len = unsafe { table_len(raw_lua, index) };
+        let len = unsafe { ffix::lua_rawlen(raw_lua, index) };
 
         // we can't check == since the object might have more properties than just array indices
         // we could just disallow this, but there's not really a reason to force mapping objects

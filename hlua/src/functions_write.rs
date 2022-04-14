@@ -1,4 +1,6 @@
-use crate::{AnyLuaValue, AsLua, AsMutLua, LuaContext, LuaRead, Push, PushGuard, PushOne, Void};
+use crate::{
+    ffix, AnyLuaValue, AsLua, AsMutLua, LuaContext, LuaRead, Push, PushGuard, PushOne, Void,
+};
 
 use ptr::NonNull;
 use std::{fmt::Display, marker::PhantomData, mem, ptr};
@@ -386,8 +388,7 @@ where
                 Ok(p) => p.forget_internal(),
                 Err(_) => unreachable!(),
             };
-            unsafe { ffi::lua_error(lua) };
-            unreachable!()
+            unsafe { ffix::lua_error(lua) };
         },
     };
 
