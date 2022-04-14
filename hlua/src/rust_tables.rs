@@ -168,7 +168,7 @@ where
 impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
 where
     L: AsMutLua<'lua>,
-    T: for<'a> LuaRead<&'a mut L> + Copy,
+    T: for<'a> LuaRead<&'a mut L>,
 {
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
         use std::mem::MaybeUninit;
@@ -201,7 +201,13 @@ where
                 // if we succeed, add it to the output array
                 Some(val) => arr[n] = MaybeUninit::new(val),
                 // if not, pop the value and return Err
-                None => return Err(me),
+                None => {
+                    for i in arr[..n].iter_mut() {
+                        unsafe { i.assume_init_drop() };
+                    }
+
+                    return Err(me);
+                },
             }
         }
 
