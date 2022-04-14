@@ -124,7 +124,6 @@ where
 {
 }
 
-#[cfg(not(feature = "no-sparse-arrays"))]
 impl<'lua, L, T> LuaRead<L> for Vec<T>
 where
     L: AsMutLua<'lua>,
@@ -178,88 +177,6 @@ where
     }
 }
 
-#[cfg(feature = "no-sparse-arrays")]
-impl<'lua, L, T> LuaRead<L> for Vec<T>
-where
-    L: AsMutLua<'lua>,
-    T: for<'a> LuaRead<&'a mut L>,
-{
-    fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
-        use std::collections::BTreeMap;
-
-        // We need this as iteration order isn't guaranteed to match order of
-        // keys, even if they're numeric
-        // https://www.lua.org/manual/5.2/manual.html#pdf-next
-        let mut dict: BTreeMap<i32, T> = BTreeMap::new();
-
-        let mut me = lua;
-        let raw_lua = me.as_mut_lua().as_ptr();
-        unsafe { ffi::lua_pushnil(raw_lua) };
-        let index = index - 1;
-
-        loop {
-            if unsafe { ffi::lua_next(raw_lua, index) } == 0 {
-                break;
-            }
-
-            let key = {
-                let maybe_key: Option<i32> = LuaRead::lua_read_at_position(&mut me, -2).ok();
-                match maybe_key {
-                    None => {
-                        // Cleaning up after ourselves
-                        unsafe { ffi::lua_pop(raw_lua, 2) };
-                        return Err(me);
-                    },
-                    Some(k) => k,
-                }
-            };
-
-            match T::lua_read_at_position(&mut me, -1).ok() {
-                Some(value) => {
-                    dict.insert(key, value);
-                },
-                None => {
-                    unsafe { ffi::lua_pop(raw_lua, 1) };
-                    return Err(me);
-                },
-            }
-
-            unsafe { ffi::lua_pop(raw_lua, 1) };
-        }
-
-        let (maximum_key, minimum_key) =
-            (*dict.keys().max().unwrap_or(&1), *dict.keys().min().unwrap_or(&1));
-
-        if minimum_key != 1 {
-            // Rust doesn't support sparse arrays or arrays with negative
-            // indices
-            return Err(me);
-        }
-
-        let mut result = Vec::with_capacity(maximum_key as usize);
-
-        // We expect to start with first element of table and have this
-        // be smaller that first key by one
-        let mut previous_key = 0;
-
-        // By this point, we actually iterate the map to move values to Vec
-        // and check that table represented non-sparse 1-indexed array
-        for (k, v) in dict {
-            if previous_key + 1 != k {
-                return Err(me);
-            } else {
-                // We just push, thus converting Lua 1-based indexing
-                // to Rust 0-based indexing
-                result.push(v);
-                previous_key = k;
-            }
-        }
-
-        Ok(result)
-    }
-}
-
-#[cfg(not(feature = "no-sparse-arrays"))]
 impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
 where
     L: AsMutLua<'lua>,
@@ -331,105 +248,6 @@ where
 
         // return the array
         Ok(out)
-    }
-}
-
-#[cfg(feature = "no-sparse-arrays")]
-impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
-where
-    L: AsMutLua<'lua>,
-    T: for<'a> LuaRead<&'a mut L> + Copy,
-{
-    fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
-        use std::{collections::BTreeMap, mem::MaybeUninit};
-
-        // We need this as iteration order isn't guaranteed to match order of
-        // keys, even if they're numeric
-        // https://www.lua.org/manual/5.2/manual.html#pdf-next
-        let mut dict: BTreeMap<i32, T> = BTreeMap::new();
-
-        let mut me = lua;
-        let raw_lua = me.as_mut_lua().as_ptr();
-        unsafe { ffi::lua_pushnil(raw_lua) };
-        let index = index - 1;
-
-        loop {
-            if unsafe { ffi::lua_next(raw_lua, index) } == 0 {
-                break;
-            }
-
-            let key = {
-                let maybe_key: Option<i32> = LuaRead::lua_read_at_position(&mut me, -2).ok();
-                match maybe_key {
-                    None => {
-                        // Cleaning up after ourselves
-                        unsafe { ffi::lua_pop(raw_lua, 2) };
-                        return Err(me);
-                    },
-                    Some(k) => k,
-                }
-            };
-
-            match T::lua_read_at_position(&mut me, -1).ok() {
-                Some(value) => {
-                    dict.insert(key, value);
-                },
-                None => {
-                    unsafe { ffi::lua_pop(raw_lua, 1) };
-                    return Err(me);
-                },
-            }
-
-            unsafe { ffi::lua_pop(raw_lua, 1) };
-        }
-
-        let (maximum_key, minimum_key) =
-            (*dict.keys().max().unwrap_or(&1), *dict.keys().min().unwrap_or(&1));
-
-        if minimum_key != 1 {
-            // Rust doesn't support sparse arrays or arrays with negative
-            // indices
-            return Err(me);
-        }
-
-        if maximum_key < C as _ {
-            // We want to be sure we can fill the array
-            return Err(me);
-        }
-
-        let mut result: [MaybeUninit<T>; C] = unsafe { MaybeUninit::uninit().assume_init() };
-
-        // We expect to start with first element of table and have this
-        // be smaller that first key by one
-        let mut previous_key = 0;
-
-        // By this point, we actually iterate the map to move values to Vec
-        // and check that table represented non-sparse 1-indexed array
-        for (k, v) in dict {
-            if k > C as _ {
-                break;
-            }
-
-            if previous_key + 1 != k {
-                return Err(me);
-            } else {
-                // We just push, thus converting Lua 1-based indexing
-                // to Rust 0-based indexing
-                result[(k - 1) as usize] = MaybeUninit::new(v);
-                previous_key = k;
-            }
-        }
-
-        let result = unsafe {
-            // Workaround since const generics currently can't be transmuted
-            // Dangerous and not to be trusted, please replace as soon as the issue is resolved
-            //
-            // https://github.com/rust-lang/rust/issues/61956
-
-            core::mem::transmute_copy(&result)
-        };
-
-        Ok(result)
     }
 }
 
@@ -663,7 +481,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "no-sparse-arrays"))]
     fn reading_too_large_array_ish_works() {
         let mut lua = Lua::new();
 
@@ -761,19 +578,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "no-sparse-arrays")]
-    fn reading_vec_from_sparse_table_doesnt_work() {
-        let mut lua = Lua::new();
-
-        lua.execute::<()>(r#"v = { [-1] = -1, [2] = 2, [42] = 42 }"#).unwrap();
-
-        let read: Option<Vec<AnyLuaValue>> = lua.get("v");
-        if read.is_some() {
-            panic!("Unexpected success");
-        }
-    }
-
-    #[test]
     fn reading_vec_with_empty_table_works() {
         let mut lua = Lua::new();
 
@@ -791,19 +595,6 @@ mod tests {
 
         let read: Vec<Vec<Vec<u32>>> = lua.get("v").unwrap();
         assert_eq!(read, [&[[1, 2], [3, 4], [5, 6]][..], &[[7, 8]][..]]);
-    }
-
-    #[test]
-    #[cfg(feature = "no-sparse-arrays")]
-    fn reading_vec_with_complex_indexes_doesnt_work() {
-        let mut lua = Lua::new();
-
-        lua.execute::<()>(r#"v = { [-1] = -1, ["foo"] = 2, [{}] = 42 }"#).unwrap();
-
-        let read: Option<Vec<AnyLuaValue>> = lua.get("v");
-        if read.is_some() {
-            panic!("Unexpected success");
-        }
     }
 
     #[test]
