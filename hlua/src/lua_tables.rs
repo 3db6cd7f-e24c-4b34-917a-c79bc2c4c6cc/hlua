@@ -270,7 +270,7 @@ where
                 Err(_) => panic!(), // TODO:
             };
 
-            match Vec::<u8>::with_capacity(0).push_to_lua(&mut me) {
+            match [0u8; 0].push_to_lua(&mut me) {
                 Ok(pushed) => pushed.forget(),
                 Err(_) => panic!(), // TODO:
             };

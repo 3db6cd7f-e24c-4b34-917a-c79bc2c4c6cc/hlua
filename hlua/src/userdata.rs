@@ -6,8 +6,10 @@ use std::{
     ptr,
 };
 
-use crate::{AsLua, AsMutLua, InsideCallback, Lua, LuaContext, LuaRead, LuaTable, Push, PushGuard};
+use crate::{AsLua, AsMutLua, InsideCallback, LuaContext, LuaRead, LuaTable, Push, PushGuard};
 
+// Lua and LuaJIT both ensure 8-byte alignment for all userdata.
+// If this changes in the future, we will need to read unaligned data or otherwise work around it.
 struct RawUserdata<T> {
     typeid: TypeId,
     data: Box<T>,
@@ -26,6 +28,21 @@ extern "C" fn destructor_wrapper<T>(lua: *mut ffi::lua_State) -> libc::c_int {
     unsafe {
         ptr::drop_in_place(ffi::lua_touserdata(lua, -1).cast::<RawUserdata<T>>());
         0
+    }
+}
+
+// This might not be required?
+pub struct OpaqueLua<'lua>(LuaContext, PhantomData<&'lua ()>);
+unsafe impl<'lua> AsLua<'lua> for OpaqueLua<'lua> {
+    #[inline]
+    fn as_lua(&self) -> LuaContext {
+        self.0
+    }
+}
+unsafe impl<'lua> AsMutLua<'lua> for OpaqueLua<'lua> {
+    #[inline]
+    fn as_mut_lua(&mut self) -> LuaContext {
+        self.0
     }
 }
 
@@ -55,17 +72,17 @@ extern "C" fn destructor_wrapper<T>(lua: *mut ffi::lua_State) -> libc::c_int {
 #[inline]
 pub fn push_userdata<'lua, L, T, F>(data: T, mut lua: L, metatable: F) -> PushGuard<L>
 where
-    F: FnOnce(LuaTable<&mut PushGuard<&mut Lua<'lua>>>),
+    F: FnOnce(LuaTable<OpaqueLua<'lua>>),
     L: AsMutLua<'lua>,
-    T: Send + 'static + Any,
+    T: Send + Any + 'static,
 {
     /// This allows the compiler to not instantiate the entire function once
     /// for each different `L` that might call the outer function.
     #[inline(never)]
-    unsafe fn inner<'lua, T, F>(data: T, mut lua: Lua<'lua>, metatable: F)
+    unsafe fn inner<'lua, T, F>(data: T, mut lua: LuaContext, metatable: F)
     where
-        F: FnOnce(LuaTable<&mut PushGuard<&mut Lua<'lua>>>),
-        T: Send + 'static + Any,
+        F: FnOnce(LuaTable<OpaqueLua<'lua>>),
+        T: Send + Any + 'static,
     {
         let raw_lua = lua.as_mut_lua();
         let lua_data = {
@@ -118,7 +135,7 @@ where
             // Index "__gc" in the metatable calls the object's destructor.
             // Only assign it if the type T needs to be explicitly dropped.
             if mem::needs_drop::<T>() {
-                "__gc".push_no_err(&mut lua).forget();
+                "__gc".push_no_err(raw_lua).forget();
                 //| -3 userdata (data: T)
                 //| -2 table (metatable)
                 //| -1 string ("__gc")
@@ -134,8 +151,9 @@ where
 
             // Calling the metatable closure.
             {
-                let mut guard = PushGuard::new(&mut lua, 1);
-                metatable(LuaRead::lua_read(&mut guard).ok().unwrap());
+                let mut guard = PushGuard::new(raw_lua, 1);
+                let mtl = OpaqueLua(guard.as_mut_lua(), PhantomData);
+                metatable(LuaRead::lua_read(mtl).ok().unwrap());
                 guard.forget();
             }
         }
@@ -147,8 +165,7 @@ where
     }
 
     let raw_lua = lua.as_mut_lua();
-    let tmp_lua = unsafe { Lua::from_existing_state(raw_lua.as_ptr(), false) };
-    unsafe { inner(data, tmp_lua, metatable) };
+    unsafe { inner(data, raw_lua, metatable) };
     PushGuard { lua, size: 1, raw_lua }
 }
 
