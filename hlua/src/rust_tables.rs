@@ -143,9 +143,7 @@ where
             () => unsafe { ffi::lua_rawlen(raw_lua, index) },
         };
 
-        unsafe {
-            ffi::lua_pushnil(raw_lua);
-        }
+        unsafe { ffi::lua_pushnil(raw_lua) };
         let mut vec = Vec::<T>::with_capacity(len as _);
 
         for n in 1..=len as _ {
@@ -261,7 +259,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(not(feature = "no-sparse-arrays"))]
 impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
 where
@@ -290,9 +287,8 @@ where
             return Err(me);
         }
 
-        unsafe {
-            ffi::lua_pushnil(raw_lua);
-        }
+        unsafe { ffi::lua_pushnil(raw_lua) };
+        // TODO: Use MaybeUninit::uninit_array() once it's stabilized
         let mut arr: [MaybeUninit<T>; C] = unsafe { MaybeUninit::uninit().assume_init() };
 
         for n in 0..C as _ {
@@ -325,8 +321,10 @@ where
         let out = unsafe {
             // Workaround since const generics currently can't be transmuted
             // Dangerous and not to be trusted, please replace as soon as the issue is resolved
+            // https://github.com/rust-lang/rust/issues/61956
             //
-            // https://github.com/rust-blang/rust/issues/61956
+            // TODO: Use `MaybeUninit::array_assume_init(_)` once it's stabilized
+            // https://github.com/rust-lang/rust/issues/80908
 
             core::mem::transmute_copy(&arr)
         };
@@ -336,7 +334,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(feature = "no-sparse-arrays")]
 impl<'lua, L, T, const C: usize> LuaRead<L> for [T; C]
 where
@@ -436,7 +433,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 impl<'lua, L, T, E, const C: usize> Push<L> for [T; C]
 where
     L: AsMutLua<'lua>,
@@ -450,7 +446,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 impl<'lua, L, T, E, const C: usize> PushOne<L> for [T; C]
 where
     L: AsMutLua<'lua>,
@@ -648,7 +643,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "nightly")]
     fn reading_array_works() {
         let mut lua = Lua::new();
 
@@ -661,7 +655,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "nightly")]
     fn reading_array_as_arg_works() {
         let mut lua = Lua::new();
 
@@ -670,7 +663,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "nightly")]
     #[cfg(not(feature = "no-sparse-arrays"))]
     fn reading_too_large_array_ish_works() {
         let mut lua = Lua::new();
@@ -682,7 +674,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "nightly")]
     fn reading_too_large_array_works() {
         let mut lua = Lua::new();
 
@@ -695,7 +686,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "nightly")]
     fn reading_too_small_array_doesnt_work() {
         let mut lua = Lua::new();
 
@@ -708,7 +698,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "nightly")]
     fn reading_too_small_array_ish_doesnt_work() {
         let mut lua = Lua::new();
 
@@ -719,7 +708,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "nightly")]
     fn reading_array_with_empty_table_works() {
         let mut lua = Lua::new();
 
@@ -730,7 +718,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "nightly")]
     fn reading_nested_array_works() {
         let mut lua = Lua::new();
 
@@ -744,7 +731,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "nightly")]
     fn writing_array_works() {
         let mut lua = Lua::new();
 

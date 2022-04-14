@@ -1,4 +1,4 @@
-use std::{mem, ops::Deref, slice, str};
+use std::{marker::PhantomData, mem, ops::Deref, slice, str};
 
 use crate::{AnyLuaString, AnyLuaValue, AsLua, AsMutLua, LuaRead, Push, PushGuard, PushOne, Void};
 
@@ -245,7 +245,9 @@ impl<'lua, 's, L> PushOne<L> for &'s str where L: AsMutLua<'lua> {}
 /// ```
 #[derive(Debug)]
 pub struct StringInLua<L> {
-    lua: L,
+    // We want to lock [`StringInLua`] to the lifetime of L, or we might end up with UAF.
+    _lua: PhantomData<L>,
+
     c_str_raw: *const libc::c_char,
     size: libc::size_t,
 }
@@ -271,7 +273,7 @@ where
             Err(_) => return Err(lua),
         };
 
-        Ok(StringInLua { lua, c_str_raw, size })
+        Ok(StringInLua { _lua: PhantomData, c_str_raw, size })
     }
 }
 

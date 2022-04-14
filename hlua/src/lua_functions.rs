@@ -509,7 +509,7 @@ mod tests {
 
     #[test]
     fn execute_from_reader_errors_if_cant_read() {
-        struct Reader {};
+        struct Reader;
 
         impl Read for Reader {
             fn read(&mut self, _: &mut [u8]) -> ::std::io::Result<usize> {
@@ -519,7 +519,7 @@ mod tests {
         }
 
         let mut lua = Lua::new();
-        let reader = Reader {};
+        let reader = Reader;
         let res: Result<(), _> = lua.execute_from_reader(reader);
         match res {
             Ok(_) => panic!("Reading succeded"),

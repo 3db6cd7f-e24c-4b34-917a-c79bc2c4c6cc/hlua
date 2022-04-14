@@ -185,7 +185,7 @@ macro_rules! impl_function_ext {
                       Z: 'lua + FnMut() -> R,
                       R: for<'a> Push<&'a mut InsideCallback> + 'static
         {
-            type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+            type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -194,7 +194,7 @@ macro_rules! impl_function_ext {
                     // pushing the function pointer as a userdata
                     let lua_data = ffi::lua_newuserdata(raw_lua.as_ptr(),
                                                         mem::size_of::<Z>() as libc::size_t);
-                    let lua_data: *mut Z = lua_data as *mut Z;
+                    let lua_data = lua_data.cast::<Z>();
                     ptr::write(lua_data, self.function);
 
                     // Creating a metatable.
@@ -246,7 +246,7 @@ macro_rules! impl_function_ext {
                       ($($p,)*): for<'p> LuaRead<&'p mut InsideCallback>,
                       R: for<'a> Push<&'a mut InsideCallback> + 'static
         {
-            type Err = Void;      // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
+            type Err = Void; // TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
 
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
@@ -255,7 +255,7 @@ macro_rules! impl_function_ext {
                     // pushing the function pointer as a userdata
                     let lua_data = ffi::lua_newuserdata(raw_lua.as_ptr(),
                                                         mem::size_of::<Z>() as libc::size_t);
-                    let lua_data: *mut Z = lua_data as *mut Z;
+                    let lua_data = lua_data.cast::<Z>();
                     ptr::write(lua_data, self.function);
 
                     // Index "__gc" in the metatable calls the object's destructor.
@@ -379,6 +379,7 @@ where
     // trying to read the arguments
     let arguments_count = unsafe { ffi::lua_gettop(lua) } as i32;
     let args = match LuaRead::lua_read_at_position(&mut tmp_lua, -arguments_count as libc::c_int) {
+        Ok(a) => a,
         // TODO: what if the user has the wrong params?
         Err(_) => {
             match "wrong parameter types for callback function".push_to_lua(&mut tmp_lua) {
@@ -388,7 +389,6 @@ where
             unsafe { ffi::lua_error(lua) };
             unreachable!()
         },
-        Ok(a) => a,
     };
 
     let data: &mut T = unsafe { &mut *data_raw.cast::<T>() };
@@ -415,7 +415,7 @@ mod tests {
 
         fn ret5() -> i32 {
             5
-        };
+        }
         lua.set("ret5", function0(ret5));
 
         let val: i32 = lua.execute("return ret5()").unwrap();
@@ -428,7 +428,7 @@ mod tests {
 
         fn plus_one(val: i32) -> i32 {
             val + 1
-        };
+        }
         lua.set("plus_one", function1(plus_one));
 
         let val: i32 = lua.execute("return plus_one(3)").unwrap();
@@ -441,7 +441,7 @@ mod tests {
 
         fn add(val1: i32, val2: i32) -> i32 {
             val1 + val2
-        };
+        }
         lua.set("add", function2(add));
 
         let val: i32 = lua.execute("return add(3, 7)").unwrap();
@@ -454,7 +454,7 @@ mod tests {
 
         fn add(val1: i32, val2: i32) -> i32 {
             val1 + val2
-        };
+        }
         lua.set("add", function2(add));
 
         match lua.execute::<i32>("return add(3, \"hello\")") {
@@ -470,7 +470,7 @@ mod tests {
 
         fn always_fails() -> Result<i32, &'static str> {
             Err("oops, problem")
-        };
+        }
         lua.set("always_fails", function0(always_fails));
 
         match lua.execute::<()>(
@@ -537,7 +537,7 @@ mod tests {
         static mut DID_DESTRUCTOR_RUN: bool = false;
 
         #[derive(Debug)]
-        struct Foo {};
+        struct Foo;
         impl Drop for Foo {
             fn drop(&mut self) {
                 unsafe {
@@ -546,7 +546,7 @@ mod tests {
             }
         }
         {
-            let foo = Arc::new(Foo {});
+            let foo = Arc::new(Foo);
 
             {
                 let mut lua = Lua::new();

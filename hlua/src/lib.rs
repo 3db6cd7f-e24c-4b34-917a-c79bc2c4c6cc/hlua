@@ -861,7 +861,7 @@ impl<'lua> Lua<'lua> {
                 },
                 Err(_) => unreachable!(),
             };
-            match value.push_to_lua(&mut me) {
+            match value.push_to_lua(me) {
                 Ok(pushed) => {
                     assert_eq!(pushed.size, 1);
                     pushed.forget()

@@ -554,7 +554,7 @@ mod tests {
             let mut metatable = table.get_or_create_metatable();
             fn handler() -> i32 {
                 5
-            };
+            }
             metatable.set("__add".to_string(), function0(handler));
         }
 
