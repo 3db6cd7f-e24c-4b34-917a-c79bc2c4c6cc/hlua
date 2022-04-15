@@ -286,6 +286,48 @@ fn valid_alignment() {
             use hlua::function1 as fn1;
 
             #[repr(align($align))]
+            struct Align(u8);
+            implement_lua_read!(Align);
+            implement_lua_push!(Align, |mut meta| meta.set(
+                "__index",
+                vec![("x", fn1(|x: &mut Align| (x as *mut _ as usize % $align) as u32))]
+            ));
+
+            // Try a lot of times and hope it eventually goes wrong
+            // There isn't really a better way to do this as far as I know
+            for _ in 0..512 {
+                $lua.set("a", Align(0));
+                assert_eq!($lua.execute::<u32>("return a:x()").unwrap(), 0);
+            }
+        }};
+    }
+
+    let mut lua = hlua::Lua::new();
+
+    validate_alignment!(lua, 1);
+    validate_alignment!(lua, 2);
+    validate_alignment!(lua, 4);
+    validate_alignment!(lua, 8);
+    validate_alignment!(lua, 16);
+    validate_alignment!(lua, 32);
+    validate_alignment!(lua, 64);
+    validate_alignment!(lua, 128);
+    validate_alignment!(lua, 256);
+    validate_alignment!(lua, 512);
+    validate_alignment!(lua, 1024);
+    validate_alignment!(lua, 2048);
+    validate_alignment!(lua, 4096);
+    validate_alignment!(lua, 8192);
+    validate_alignment!(lua, 16384);
+}
+
+#[test]
+fn valid_zst_alignment() {
+    macro_rules! validate_alignment {
+        ($lua:expr, $align:expr) => {{
+            use hlua::function1 as fn1;
+
+            #[repr(align($align))]
             struct Align;
             implement_lua_read!(Align);
             implement_lua_push!(Align, |mut meta| meta.set(
