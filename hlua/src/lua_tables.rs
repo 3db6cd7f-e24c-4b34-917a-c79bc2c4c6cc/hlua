@@ -149,13 +149,8 @@ where
             index.push_no_err(&mut me).assert_one_and_forget();
             ffi::lua_gettable(raw_lua.as_ptr(), me.offset(-1));
 
-            let guard = PushGuard { lua: me, size: 1, raw_lua };
-
-            if !ffi::lua_isnil(raw_lua.as_ptr(), -1) {
-                LuaRead::lua_read(guard).ok()
-            } else {
-                None
-            }
+            // Guard for the table pushed by `lua_gettable`
+            R::lua_read(PushGuard { lua: me, size: 1, raw_lua }).ok()
         }
     }
 
@@ -174,13 +169,8 @@ where
             let raw_lua = self.as_mut_lua();
             ffi::lua_gettable(raw_lua.as_ptr(), self.offset(-1));
 
-            let guard = PushGuard { lua: self, size: 1, raw_lua };
-
-            if !ffi::lua_isnil(raw_lua.as_ptr(), -1) {
-                LuaRead::lua_read(guard)
-            } else {
-                Err(guard)
-            }
+            // Guard for the table pushed by `lua_gettable`
+            R::lua_read(PushGuard { lua: self, size: 1, raw_lua })
         }
     }
 
