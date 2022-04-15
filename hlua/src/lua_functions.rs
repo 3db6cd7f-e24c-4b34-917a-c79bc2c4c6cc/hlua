@@ -406,13 +406,6 @@ impl Error for LuaFunctionCallError<Void> {
     }
 }
 
-// TODO: return Result<Ret, ExecutionError> instead
-// impl<'a, 'lua, Ret: CopyRead> ::std::ops::FnMut<(), Ret> for LuaFunction<'a,'lua> {
-// fn call_mut(&mut self, _: ()) -> Ret {
-// self.call().unwrap()
-// }
-// }
-
 impl<'lua, L> LuaRead<L> for LuaFunction<L>
 where
     L: AsMutLua<'lua>,
