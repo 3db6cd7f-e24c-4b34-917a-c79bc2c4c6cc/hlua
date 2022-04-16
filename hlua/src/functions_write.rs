@@ -323,7 +323,7 @@ where
 {
     // loading the object that we want to call from the Lua context
     let data_raw = match std::mem::size_of::<T>() {
-        0 => std::ptr::null_mut(), // This *should* be sound for ZSTs?
+        0 => NonNull::dangling().as_ptr(),
         _ => unsafe { ffi::lua_touserdata(lua, ffi::lua_upvalueindex(1)) },
     };
 
