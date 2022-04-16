@@ -1,27 +1,31 @@
 use std::{
     any::{Any, TypeId},
     marker::PhantomData,
-    mem::{self, align_of, size_of},
+    mem,
     ops::{Deref, DerefMut},
-    ptr::{self, addr_of, addr_of_mut, NonNull},
+    ptr::addr_of,
 };
-
-use libc::c_void;
 
 use crate::{AsLua, AsMutLua, InsideCallback, LuaContext, LuaRead, LuaTable, Push, PushGuard};
 
-// Lua and LuaJIT both ensure 8-byte alignment for all userdata.
-// If this changes in the future, we will need to read unaligned data or otherwise work around it.
-const LUA_ALLOCATOR_ALIGNMENT: usize = 8;
+mod raw {
+    use std::{
+        any::TypeId,
+        mem::{align_of, size_of},
+        ptr::{self, addr_of_mut, NonNull},
+    };
 
-/// PLEASE do not construct this struct, it is dynamically sized.
-#[repr(C)]
-struct RawUserdata<T: 'static>(PhantomData<T>);
+    use libc::c_void;
 
-impl<T: 'static> RawUserdata<T> {
+    use crate::LuaContext;
+
+    // Lua and LuaJIT both ensure 8-byte alignment for all userdata.
+    // If this changes in the future, we will need to read unaligned data or otherwise work around it.
+    const LUA_ALLOCATOR_ALIGNMENT: usize = 8;
+
     #[inline(always)]
-    unsafe fn push(data: T, lua: LuaContext) {
-        let mem = ffi::lua_newuserdata(lua.as_ptr(), Self::size());
+    pub unsafe fn push<T: 'static>(data: T, lua: LuaContext) {
+        let mem = ffi::lua_newuserdata(lua.as_ptr(), size::<T>());
         let tid = mem.cast::<TypeId>();
 
         // Ensure that alignment matches
@@ -33,49 +37,58 @@ impl<T: 'static> RawUserdata<T> {
 
         // If we're holding ZST data there's no reason to actually save it, since it's zero-sized
         // This matters since if we *do* save it it'll not necessarily have the correct alignment
-        if !Self::holds_zst() {
+        if !holds_zst::<T>() {
             // Find the data right after
             let dta = mem.cast::<u8>().add(size_of::<TypeId>());
 
             // Ensure that alignment matches
-            debug_assert_eq!(dta as usize % Self::data_fld_align(), 0);
+            debug_assert_eq!(dta as usize % data_field_alignment::<T>(), 0);
 
-            match Self::inline() {
+            match is_inline::<T>() {
                 true => std::ptr::write(dta.cast(), data),
                 false => std::ptr::write(dta.cast(), Box::new(data)),
             }
         }
     }
 
+    /// Drops the data.
+    pub unsafe fn drop<T>(ptr: *mut c_void) {
+        let dta = ptr.cast::<u8>().add(size_of::<TypeId>());
+        match is_inline::<T>() {
+            true => ptr::drop_in_place(dta.cast::<T>()),
+            false => ptr::drop_in_place(dta.cast::<Box<T>>()),
+        }
+    }
+
     /// Reads a [`TypeId`] from the pointer and ensures it matches [`T`].
-    unsafe fn validate_type_id(ptr: *mut c_void) -> bool {
+    pub unsafe fn validate_type_id<T: 'static>(ptr: *mut c_void) -> bool {
         *ptr.cast::<TypeId>() == TypeId::of::<T>()
     }
 
-    const fn size() -> usize {
-        size_of::<TypeId>() + if Self::inline() { size_of::<T>() } else { size_of::<Box<T>>() }
+    const fn size<T>() -> usize {
+        size_of::<TypeId>() + if is_inline::<T>() { size_of::<T>() } else { size_of::<Box<T>>() }
     }
 
-    const fn holds_zst() -> bool {
+    const fn holds_zst<T>() -> bool {
         size_of::<T>() == 0
     }
 
     /// Returns whether or not the data is stored inline.
     /// If it is not, it is stored in a box.
-    const fn inline() -> bool {
-        !Self::holds_zst() && align_of::<T>() <= LUA_ALLOCATOR_ALIGNMENT
+    const fn is_inline<T>() -> bool {
+        !holds_zst::<T>() && align_of::<T>() <= LUA_ALLOCATOR_ALIGNMENT
     }
 
     /// Returns the alignment of the data field.
-    const fn data_fld_align() -> usize {
-        match Self::inline() {
+    const fn data_field_alignment<T>() -> usize {
+        match is_inline::<T>() {
             true => align_of::<T>(),
             false => align_of::<Box<T>>(),
         }
     }
 
     /// Returns a pointer to the inner data.
-    unsafe fn data_ptr(ptr: *mut c_void) -> *mut T {
+    pub unsafe fn data_ptr<T>(ptr: *mut c_void) -> *mut T {
         // Always return a valid ZST pointer for ZSTs.
         // We're handling ZSTs like this to avoid allocating space for and empty box.
         if size_of::<T>() == 0 {
@@ -83,24 +96,20 @@ impl<T: 'static> RawUserdata<T> {
         }
 
         let dta = ptr.cast::<u8>().add(size_of::<TypeId>());
-        match Self::inline() {
+        match is_inline::<T>() {
             true => dta.cast::<T>(),
             false => addr_of_mut!(*(*dta.cast::<Box<T>>())),
         }
     }
 
-    // Returns a mutable reference to the inner data.
-    unsafe fn data_mut<'a>(ptr: *mut c_void) -> &'a mut T {
-        &mut *Self::data_ptr(ptr)
+    // Returns a reference to the inner data.
+    pub unsafe fn data_ref<'a, T>(ptr: *mut c_void) -> &'a T {
+        &*data_ptr::<T>(ptr)
     }
 
-    /// Drops the data.
-    unsafe fn drop(ptr: *mut c_void) {
-        let dta = ptr.cast::<u8>().add(size_of::<TypeId>());
-        match Self::inline() {
-            true => ptr::drop_in_place(dta.cast::<T>()),
-            false => ptr::drop_in_place(dta.cast::<Box<T>>()),
-        }
+    // Returns a mutable reference to the inner data.
+    pub unsafe fn data_mut<'a, T>(ptr: *mut c_void) -> &'a mut T {
+        &mut *data_ptr::<T>(ptr)
     }
 }
 
@@ -108,7 +117,7 @@ impl<T: 'static> RawUserdata<T> {
 #[inline]
 extern "C" fn destructor_wrapper<T: 'static>(lua: *mut ffi::lua_State) -> libc::c_int {
     unsafe {
-        RawUserdata::<T>::drop(ffi::lua_touserdata(lua, -1));
+        raw::drop::<T>(ffi::lua_touserdata(lua, -1));
         0
     }
 }
@@ -167,7 +176,7 @@ where
         T: Send + Any + 'static,
     {
         let raw_lua = lua.as_mut_lua();
-        RawUserdata::push(data, raw_lua);
+        raw::push::<T>(data, raw_lua);
 
         // Get TypeId of T.
         let typeid = TypeId::of::<T>();
@@ -254,7 +263,7 @@ where
     unsafe {
         let ptr = ffi::lua_touserdata(lua.as_lua().as_ptr(), index);
         match ptr.is_null() {
-            false if RawUserdata::<T>::validate_type_id(ptr) => Ok(RawUserdata::<T>::data_mut(ptr)),
+            false if raw::validate_type_id::<T>(ptr) => Ok(raw::data_mut::<T>(ptr)),
             _ => Err(lua),
         }
     }
@@ -278,7 +287,7 @@ where
         unsafe {
             let ptr = ffi::lua_touserdata(lua.as_lua().as_ptr(), index);
             match ptr.is_null() {
-                false if RawUserdata::<T>::validate_type_id(ptr) => {
+                false if raw::validate_type_id::<T>(ptr) => {
                     Ok(UserdataOnStack { variable: lua, index, marker: PhantomData })
                 },
                 _ => Err(lua),
@@ -320,7 +329,7 @@ where
     fn deref(&self) -> &T {
         unsafe {
             let ptr = ffi::lua_touserdata(self.variable.as_lua().as_ptr(), self.index);
-            RawUserdata::data_mut(ptr)
+            raw::data_ref::<T>(ptr)
         }
     }
 }
@@ -334,7 +343,7 @@ where
     fn deref_mut(&mut self) -> &mut T {
         unsafe {
             let ptr = ffi::lua_touserdata(self.variable.as_lua().as_ptr(), self.index);
-            RawUserdata::data_mut(ptr)
+            raw::data_mut::<T>(ptr)
         }
     }
 }
