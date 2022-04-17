@@ -857,22 +857,12 @@ impl<'lua> Lua<'lua> {
             // TODO: can be simplified
             let mut me = self;
 
-            match () {
-                #[cfg(feature = "_luaapi_51")]
-                () => ffi::lua_pushvalue(me.lua.as_ptr(), ffi::LUA_GLOBALSINDEX as _),
-                #[cfg(feature = "_luaapi_52")]
-                () => ffi::lua_pushglobaltable(me.lua.as_ptr()),
-                #[cfg(feature = "_luaapi_54")]
-                () => ffi::lua_pushglobaltable(me.lua.as_ptr()),
-            };
+            ffix::lua_pushglobaltable(me.lua);
 
-            match index.borrow().push_to_lua(&mut me) {
-                Ok(pushed) => {
-                    debug_assert_eq!(pushed.size, 1);
-                    pushed.forget()
-                },
-                Err(_) => unreachable!(),
-            };
+            let pushed = index.borrow().push_no_err(&mut me);
+            debug_assert_eq!(pushed.size, 1);
+            pushed.forget();
+
             match value.push_to_lua(me) {
                 Ok(pushed) => {
                     assert_eq!(pushed.size, 1);
@@ -926,18 +916,8 @@ impl<'lua> Lua<'lua> {
     {
         unsafe {
             let mut me = self;
-            match () {
-                #[cfg(feature = "_luaapi_51")]
-                () => ffi::lua_pushvalue(me.lua.as_ptr(), ffi::LUA_GLOBALSINDEX as _),
-                #[cfg(feature = "_luaapi_52")]
-                () => ffi::lua_pushglobaltable(me.lua.as_ptr()),
-                #[cfg(feature = "_luaapi_54")]
-                () => ffi::lua_pushglobaltable(me.lua.as_ptr()),
-            };
-            match index.borrow().push_to_lua(&mut me) {
-                Ok(pushed) => pushed.forget(),
-                Err(_) => unreachable!(),
-            };
+            ffix::lua_pushglobaltable(me.lua);
+            index.borrow().push_no_err(&mut me).forget();
             ffi::lua_newtable(me.lua.as_ptr());
             ffi::lua_settable(me.lua.as_ptr(), -3);
             ffi::lua_pop(me.lua.as_ptr(), 1);
@@ -987,14 +967,8 @@ impl<'lua> Lua<'lua> {
     #[inline]
     pub fn globals_table<'a>(&'a mut self) -> LuaTable<PushGuard<&'a mut Lua<'lua>>> {
         let raw_lua = self.as_lua();
-        match () {
-            #[cfg(feature = "_luaapi_51")]
-            () => unsafe { ffi::lua_pushvalue(raw_lua.as_ptr(), ffi::LUA_GLOBALSINDEX as _) },
-            #[cfg(feature = "_luaapi_52")]
-            () => unsafe { ffi::lua_pushglobaltable(raw_lua.as_ptr()) },
-            #[cfg(feature = "_luaapi_54")]
-            () => unsafe { ffi::lua_pushglobaltable(raw_lua.as_ptr()) },
-        };
+
+        unsafe { ffix::lua_pushglobaltable(raw_lua) };
         let guard = PushGuard { lua: self, size: 1, raw_lua };
         LuaRead::lua_read(guard).ok().unwrap()
     }

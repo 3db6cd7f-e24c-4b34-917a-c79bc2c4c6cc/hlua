@@ -191,9 +191,8 @@ where
         Ei: Into<Void>,
         Ev: Into<Void>,
     {
-        match self.checked_set(index, value) {
-            Ok(()) => (),
-            Err(_) => unreachable!(),
+        if self.checked_set(index, value).is_err() {
+            unreachable!()
         }
     }
 

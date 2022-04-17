@@ -248,8 +248,10 @@ pub struct StringInLua<L> {
     // We want to lock [`StringInLua`] to the lifetime of L, or we might end up with UAF.
     _lua: PhantomData<L>,
 
-    c_str_raw: *const libc::c_char,
-    size: libc::size_t,
+    // This NEEDS to contain a pointer to a valid UTF-8 string, or there will be UB on deref.
+    // The string is not guaranteed to be null terminated.
+    ptr: *const libc::c_char,
+    len: libc::size_t,
 }
 
 impl<'lua, L> LuaRead<L> for StringInLua<L>
@@ -258,22 +260,20 @@ where
 {
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<StringInLua<L>, L> {
-        let mut size = mem::MaybeUninit::uninit();
-        let c_str_raw =
-            unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
-        if c_str_raw.is_null() {
+        let mut len = mem::MaybeUninit::uninit();
+        let ptr = unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, len.as_mut_ptr()) };
+        if ptr.is_null() {
+            return Err(lua);
+        }
+        let len = unsafe { len.assume_init() };
+
+        // Ensure that the string is valid UTF-8.
+        let slice = unsafe { slice::from_raw_parts(ptr.cast(), len) };
+        if str::from_utf8(slice).is_err() {
             return Err(lua);
         }
 
-        let size = unsafe { size.assume_init() };
-
-        let c_slice = unsafe { slice::from_raw_parts(c_str_raw.cast::<u8>(), size) };
-        match str::from_utf8(c_slice) {
-            Ok(_) => (),
-            Err(_) => return Err(lua),
-        };
-
-        Ok(StringInLua { _lua: PhantomData, c_str_raw, size })
+        Ok(StringInLua { _lua: PhantomData, ptr, len })
     }
 }
 
@@ -282,11 +282,8 @@ impl<L> Deref for StringInLua<L> {
 
     #[inline]
     fn deref(&self) -> &str {
-        let c_slice = unsafe { slice::from_raw_parts(self.c_str_raw.cast::<u8>(), self.size) };
-        match str::from_utf8(c_slice) {
-            Ok(s) => s,
-            Err(_) => unreachable!(), // Checked earlier
-        }
+        let slice = unsafe { slice::from_raw_parts(self.ptr.cast(), self.len) };
+        unsafe { str::from_utf8(slice).unwrap_unchecked() }
     }
 }
 

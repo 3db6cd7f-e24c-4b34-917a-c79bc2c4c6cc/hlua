@@ -59,7 +59,7 @@ mod raw {
         ptr::drop_in_place(data_ptr::<T>(ptr));
     }
 
-    /// Reads a [`TypeId`] from the pointer and ensures it matches [`T`].
+    /// Reads a [`TypeId`] from the pointer and ensures it matches `T`.
     pub unsafe fn validate_type_id<T: 'static>(ptr: *mut c_void) -> bool {
         *ptr.cast::<TypeId>() == TypeId::of::<T>()
     }

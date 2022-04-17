@@ -209,16 +209,11 @@ macro_rules! impl_function_ext {
                         ptr::write(lua_data, self.function);
                     }
 
-                    // Index "__gc" in the metatable calls the object's destructor.
+                    // Only assign "__gc" if Z needs to be dropped.
                     if mem::needs_drop::<Z>() {
-                        // Creating a metatable.
                         ffi::lua_newtable(raw_lua.as_ptr());
 
-                        match "__gc".push_to_lua(&mut lua) {
-                            Ok(p) => p.forget_internal(),
-                            Err(_) => unreachable!(),
-                        };
-
+                        "__gc".push_no_err(&mut lua).forget_internal();
                         ffi::lua_pushcfunction(raw_lua.as_ptr(), Some(closure_destructor_wrapper::<Z>));
                         ffi::lua_rawset(raw_lua.as_ptr(), -3);
 
