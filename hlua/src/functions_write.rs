@@ -321,6 +321,13 @@ where
     P: for<'p> LuaRead<&'p mut InsideCallback> + 'static,
     R: for<'p> Push<&'p mut InsideCallback>,
 {
+    #[cold]
+    #[inline(never)]
+    fn err_wrong_type<'a>(lua: LuaContext) -> ! {
+        "wrong parameter types for callback function".push_no_err(lua).forget_internal();
+        unsafe { ffix::lua_error(lua.as_ptr()) };
+    }
+
     // loading the object that we want to call from the Lua context
     let data_raw = match std::mem::size_of::<T>() {
         0 => NonNull::dangling().as_ptr(),
@@ -331,17 +338,10 @@ where
     let mut tmp_lua = InsideCallback { lua: unsafe { NonNull::new_unchecked(lua) } };
 
     // trying to read the arguments
-    let arguments_count = unsafe { ffi::lua_gettop(lua) } as i32;
-    let args = match LuaRead::lua_read_at_position(&mut tmp_lua, -arguments_count as libc::c_int) {
+    let argc = unsafe { ffi::lua_gettop(lua) } as i32;
+    let args = match LuaRead::lua_read_at_position(&mut tmp_lua, -argc as libc::c_int) {
         Ok(a) => a,
-        // TODO: what if the user has the wrong params?
-        Err(_) => {
-            match "wrong parameter types for callback function".push_to_lua(&mut tmp_lua) {
-                Ok(p) => p.forget_internal(),
-                Err(_) => unreachable!(),
-            };
-            unsafe { ffix::lua_error(lua) };
-        },
+        Err(_) => err_wrong_type(tmp_lua.lua),
     };
 
     let data: &mut T = unsafe { &mut *data_raw.cast::<T>() };
