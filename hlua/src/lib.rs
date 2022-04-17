@@ -144,7 +144,7 @@ pub use lua_functions::{LuaCode, LuaCodeFromReader, LuaFunction, LuaFunctionCall
 pub use lua_tables::{LuaTable, LuaTableIterator};
 pub use rust_tables::IntoIteratorWrapper;
 pub use tuples::TuplePushError;
-pub use userdata::{push_userdata, read_userdata, OpaqueLua, UserdataOnStack};
+pub use userdata::{push_userdata, read_userdata, UserdataOnStack};
 pub use values::StringInLua;
 
 mod any;
@@ -264,6 +264,16 @@ pub unsafe trait AsMutLua<'lua>: AsLua<'lua> {
     fn as_mut_lua(&mut self) -> LuaContext;
 }
 
+// This is a general escape hatch to allow hiding impl details from the user.
+// It's very useful when it comes to reducing duplicate code due to generics.
+pub struct OpaqueLua<'lua>(LuaContext, PhantomData<&'lua ()>);
+impl<'lua> OpaqueLua<'lua> {
+    #[inline(always)]
+    fn new(mut lua: impl AsMutLua<'lua>) -> Self {
+        OpaqueLua(lua.as_mut_lua(), PhantomData)
+    }
+}
+
 /// A pointer to the inner `lua_State` for this context. This is an escape hatch that
 /// lets the caller perform arbitrary operations against the FFI directly.
 ///
@@ -317,6 +327,19 @@ where
     #[inline]
     fn as_mut_lua(&mut self) -> LuaContext {
         self.lua.as_mut_lua()
+    }
+}
+
+unsafe impl<'lua> AsLua<'lua> for OpaqueLua<'lua> {
+    #[inline]
+    fn as_lua(&self) -> LuaContext {
+        self.0
+    }
+}
+unsafe impl<'lua> AsMutLua<'lua> for OpaqueLua<'lua> {
+    #[inline]
+    fn as_mut_lua(&mut self) -> LuaContext {
+        self.0
     }
 }
 
@@ -859,15 +882,10 @@ impl<'lua> Lua<'lua> {
 
             ffix::lua_pushglobaltable(me.lua);
 
-            let pushed = index.borrow().push_no_err(&mut me);
-            debug_assert_eq!(pushed.size, 1);
-            pushed.forget();
+            index.borrow().push_no_err(&mut me).assert_one_and_forget();
 
             match value.push_to_lua(me) {
-                Ok(pushed) => {
-                    assert_eq!(pushed.size, 1);
-                    pushed.forget()
-                },
+                Ok(pushed) => pushed.assert_one_and_forget(),
                 Err((err, lua)) => {
                     ffi::lua_pop(lua.lua.as_ptr(), 2);
                     return Err(err);
@@ -987,9 +1005,7 @@ impl<L> Drop for PushGuard<L> {
     #[inline]
     fn drop(&mut self) {
         if self.size != 0 {
-            unsafe {
-                ffi::lua_pop(self.raw_lua.as_ptr(), self.size);
-            }
+            unsafe { ffi::lua_pop(self.raw_lua.as_ptr(), self.size) };
         }
     }
 }

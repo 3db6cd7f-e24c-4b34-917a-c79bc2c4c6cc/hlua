@@ -100,7 +100,6 @@ where
         unsafe {
             let raw_lua = self.table.as_mut_lua();
             ffi::lua_pushnil(raw_lua.as_ptr());
-
             LuaTableIterator { table: self, finished: false, raw_lua, marker: PhantomData }
         }
     }
@@ -224,10 +223,7 @@ where
             };
 
             match value.push_to_lua(&mut guard) {
-                Ok(pushed) => {
-                    assert_eq!(pushed.size, 1);
-                    pushed.forget()
-                },
+                Ok(pushed) => pushed.assert_one_and_forget(),
                 Err((err, _)) => return Err(CheckedSetError::ValuePushError(err)),
             };
 

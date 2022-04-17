@@ -6,7 +6,9 @@ use std::{
     ptr::{addr_of, NonNull},
 };
 
-use crate::{AsLua, AsMutLua, InsideCallback, LuaContext, LuaRead, LuaTable, Push, PushGuard};
+use crate::{
+    AsLua, AsMutLua, InsideCallback, LuaContext, LuaRead, LuaTable, OpaqueLua, Push, PushGuard,
+};
 
 mod raw {
     use std::{
@@ -152,21 +154,6 @@ extern "C" fn destructor_wrapper<T: 'static>(lua: *mut ffi::lua_State) -> libc::
     }
 }
 
-// This might not be required?
-pub struct OpaqueLua<'lua>(LuaContext, PhantomData<&'lua ()>);
-unsafe impl<'lua> AsLua<'lua> for OpaqueLua<'lua> {
-    #[inline]
-    fn as_lua(&self) -> LuaContext {
-        self.0
-    }
-}
-unsafe impl<'lua> AsMutLua<'lua> for OpaqueLua<'lua> {
-    #[inline]
-    fn as_mut_lua(&mut self) -> LuaContext {
-        self.0
-    }
-}
-
 /// Pushes an object as a user data.
 ///
 /// In Lua, a user data is anything that is not recognized by Lua. When the script attempts to
@@ -231,7 +218,7 @@ where
 
             // Calling the metatable closure.
             let mut guard = PushGuard::new(raw_lua, 1);
-            let mtl = OpaqueLua(guard.as_mut_lua(), PhantomData);
+            let mtl = OpaqueLua::new(&mut guard);
             metatable(LuaRead::lua_read(mtl).ok().unwrap());
             guard.forget();
         }
