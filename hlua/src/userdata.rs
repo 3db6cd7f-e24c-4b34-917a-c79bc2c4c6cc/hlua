@@ -12,46 +12,74 @@ mod raw {
     use std::{
         any::TypeId,
         mem::{align_of, size_of},
+        os::raw::c_void,
         ptr::{self, NonNull},
     };
 
-    use libc::c_void;
+    pub struct Head {
+        pub type_id: TypeId,
+    }
 
-    use crate::LuaContext;
+    impl Head {
+        pub fn of<T: 'static>() -> Head {
+            Head { type_id: TypeId::of::<T>() }
+        }
+    }
 
     // All supported versions of Lua ensure 8-byte alignment for all userdata allocations.
     // If this changes in the future we'll need to read unaligned data or otherwise work around it.
     // If you're not sure what this should be set to or can't guarantee any alignment, set it to 0.
-    const LUA_ALLOCATOR_ALIGNMENT: usize = 8;
+    const GUARANTEED_ALIGNMENT_ALLOC: usize = 8;
 
-    /// Pushes a userdata value onto the Lua stack.
+    // The alignment we're guaranteed for the blocks allocated.
+    // These are used to prevent allocating padding bytes when we're guaranteed to be aligned.
+    const GUARANTEED_ALIGNMENT_HEAD: usize = GUARANTEED_ALIGNMENT_ALLOC;
+    const GUARANTEED_ALIGNMENT_DATA: usize = 1 << size_of::<Head>().trailing_zeros();
+
     #[inline(always)]
-    pub unsafe fn push<T: 'static>(data: T, lua: LuaContext) {
-        let pad = match is_zst::<T>() {
-            true => 0, // We don't need to actually store ZSTs, so we don't need any padding
-            false => align_of::<T>().saturating_sub(LUA_ALLOCATOR_ALIGNMENT),
+    fn align_up<T>(ptr: *mut T, from_align: usize, to_align: usize) -> *mut T {
+        // This match should always be resolved at compile-time
+        match from_align < to_align {
+            // "Alignment is measured in bytes, and must be at least 1, and always a power of 2"
+            true => ((ptr as usize + to_align - 1) & !(to_align - 1)) as *mut T,
+            false => ptr.cast(),
+        }
+    }
+
+    /// Returns whether [`T`] is a zero-sized struct.
+    const fn is_zst<T>() -> bool {
+        size_of::<T>() == 0
+    }
+
+    /// Creates a userdata value and writes it to the pointer returned by `alloc`.
+    ///
+    /// # SAFETY
+    /// The pointer returned by `alloc` must be aligned to `ALLOCATOR_ALIGNMENT` and point to valid
+    /// memory.
+    #[inline(always)]
+    pub unsafe fn create<T: 'static, A>(item: T, alloc: A) -> *mut c_void
+    where
+        A: FnOnce(usize) -> *mut c_void,
+    {
+        let head_pad = align_of::<Head>().saturating_sub(GUARANTEED_ALIGNMENT_HEAD);
+        let data_pad = match is_zst::<T>() {
+            true => 0, // We don't need to actually store ZSTs, so they don't need any padding
+            false => align_of::<T>().saturating_sub(GUARANTEED_ALIGNMENT_DATA),
         };
 
-        let len = size_of::<TypeId>() + size_of::<T>() + pad;
-        let mem = ffi::lua_newuserdata(lua.as_ptr(), len);
-        let tid = mem.cast::<TypeId>();
+        let full = alloc(size_of::<Head>() + head_pad + size_of::<T>() + data_pad);
+        debug_assert_eq!(full as usize % GUARANTEED_ALIGNMENT_ALLOC, 0);
 
-        // Ensure that alignment matches
-        debug_assert_eq!(mem as usize % LUA_ALLOCATOR_ALIGNMENT, 0);
-        debug_assert_eq!(tid as usize % align_of::<TypeId>(), 0);
+        std::ptr::write(head_ptr(full), Head::of::<T>());
 
-        // We always want to write the TypeId
-        std::ptr::write(tid, TypeId::of::<T>());
-
-        // If we're holding ZST data there's no reason to actually save it, since it's zero-sized
-        // This matters since if we *do* save it it'll not necessarily have the correct alignment
-        if !is_zst::<T>() {
-            let ptr = data_ptr::<T>(mem);
-
-            // Ensure that alignment matches
-            debug_assert_eq!(ptr as usize % align_of::<T>(), 0);
-            std::ptr::write(ptr.cast(), data);
+        if is_zst::<T>() {
+            // If we're holding a ZST there's no reason to actually save it, since it's zero-sized
+            // This matters since if we *do* save it it'll not necessarily have the correct alignment
+        } else {
+            std::ptr::write(data_ptr(full), item);
         }
+
+        full
     }
 
     /// Drops the inner data.
@@ -59,9 +87,11 @@ mod raw {
         ptr::drop_in_place(data_ptr::<T>(ptr));
     }
 
-    /// Reads a [`TypeId`] from the pointer and ensures it matches `T`.
-    pub unsafe fn validate_type_id<T: 'static>(ptr: *mut c_void) -> bool {
-        *ptr.cast::<TypeId>() == TypeId::of::<T>()
+    /// Returns a pointer to the inner data.
+    pub unsafe fn head_ptr(ptr: *mut c_void) -> *mut Head {
+        let head = align_up(ptr, GUARANTEED_ALIGNMENT_HEAD, align_of::<Head>()).cast();
+        debug_assert_eq!(head as usize % align_of::<Head>(), 0);
+        head
     }
 
     /// Returns a pointer to the inner data.
@@ -73,40 +103,43 @@ mod raw {
             return NonNull::dangling().as_ptr();
         }
 
-        // Skip past the TypeId
-        let data = ptr.cast::<TypeId>().add(1);
+        let data = head_ptr(ptr).add(1).cast(); // Skip past the head
+        let data = align_up(data, GUARANTEED_ALIGNMENT_DATA, align_of::<T>());
+        debug_assert_eq!(data as usize % align_of::<T>(), 0);
+        data
+    }
 
-        // The check for align > LUA_ALLOCATOR_ALIGNMENT should always be resolved at compile-time
-        let align = align_of::<T>();
-        match align > LUA_ALLOCATOR_ALIGNMENT {
-            // Skip past the padding
-            // "Alignment is measured in bytes, and must be at least 1, and always a power of 2"
-            true => ((data as usize + align - 1) & !(align - 1)) as *mut _,
-            false => data.cast(),
+    pub mod util {
+        use super::{data_ptr, head_ptr, Head};
+        use std::{any::TypeId, ffi::c_void};
+
+        /// Checks if the userdata pointed to by `ptr` is of type `T`.
+        pub unsafe fn validate_type<T: 'static>(ptr: *mut c_void) -> bool {
+            head_ref(ptr).type_id == TypeId::of::<T>()
         }
-    }
 
-    /// Returns a reference to the inner data.
-    pub unsafe fn data_ref<'a, T>(ptr: *mut c_void) -> &'a T {
-        &*data_ptr::<T>(ptr)
-    }
+        /// Returns a reference to the head.
+        pub unsafe fn head_ref<'a>(ptr: *mut c_void) -> &'a Head {
+            &*head_ptr(ptr)
+        }
 
-    /// Returns a mutable reference to the inner data.
-    pub unsafe fn data_mut<'a, T>(ptr: *mut c_void) -> &'a mut T {
-        &mut *data_ptr::<T>(ptr)
-    }
+        /// Returns a reference to the inner data.
+        pub unsafe fn data_ref<'a, T>(ptr: *mut c_void) -> &'a T {
+            &*data_ptr::<T>(ptr)
+        }
 
-    /// Returns a mutable reference to the inner data.
-    ///
-    /// This also checks so that the pointer is not null and validates that the type matches.
-    /// If you know that the pointer is valid, you can use [`data_mut`] instead.
-    pub unsafe fn data_mut_checked<'a, T: 'static>(ptr: *mut c_void) -> Option<&'a mut T> {
-        (!ptr.is_null() && validate_type_id::<T>(ptr)).then(|| data_mut::<T>(ptr))
-    }
+        /// Returns a mutable reference to the inner data.
+        pub unsafe fn data_mut<'a, T>(ptr: *mut c_void) -> &'a mut T {
+            &mut *data_ptr::<T>(ptr)
+        }
 
-    /// Returns whether [`T`] is a zero-sized struct.
-    const fn is_zst<T>() -> bool {
-        size_of::<T>() == 0
+        /// Returns a mutable reference to the inner data.
+        ///
+        /// This also checks so that the pointer is not null and validates that the type matches.
+        /// If you know that the pointer is valid, you can use [`data_mut`] instead.
+        pub unsafe fn data_mut_checked<'a, T: 'static>(ptr: *mut c_void) -> Option<&'a mut T> {
+            (!ptr.is_null() && validate_type::<T>(ptr)).then(|| data_mut::<T>(ptr))
+        }
     }
 }
 
@@ -204,7 +237,7 @@ where
         }
 
         let raw_lua = lua.as_mut_lua();
-        raw::push::<T>(data, raw_lua);
+        raw::create(data, |len| ffi::lua_newuserdata(raw_lua.as_ptr(), len));
 
         // Get TypeId of T.
         let typeid = TypeId::of::<T>();
@@ -239,7 +272,7 @@ where
 {
     unsafe {
         let ptr = ffi::lua_touserdata(lua.as_lua().as_ptr(), index);
-        raw::data_mut_checked::<T>(ptr).ok_or(lua)
+        raw::util::data_mut_checked::<T>(ptr).ok_or(lua)
     }
 }
 
@@ -260,7 +293,7 @@ where
     fn lua_read_at_position(lua: L, index: i32) -> Result<UserdataOnStack<T, L>, L> {
         unsafe {
             match NonNull::new(ffi::lua_touserdata(lua.as_lua().as_ptr(), index)) {
-                Some(x) if raw::validate_type_id::<T>(x.as_ptr()) => {
+                Some(x) if raw::util::validate_type::<T>(x.as_ptr()) => {
                     Ok(UserdataOnStack { variable: lua, index, marker: PhantomData })
                 },
                 _ => Err(lua),
@@ -301,7 +334,8 @@ where
     #[inline]
     fn deref(&self) -> &T {
         unsafe {
-            raw::data_ref::<T>(ffi::lua_touserdata(self.variable.as_lua().as_ptr(), self.index))
+            let ptr = self.variable.as_lua().as_ptr();
+            raw::util::data_ref::<T>(ffi::lua_touserdata(ptr, self.index))
         }
     }
 }
@@ -314,7 +348,8 @@ where
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
         unsafe {
-            raw::data_mut::<T>(ffi::lua_touserdata(self.variable.as_lua().as_ptr(), self.index))
+            let ptr = self.variable.as_lua().as_ptr();
+            raw::util::data_mut::<T>(ffi::lua_touserdata(ptr, self.index))
         }
     }
 }
