@@ -172,75 +172,55 @@ where
         F: FnOnce(LuaTable<OpaqueLua<'lua>>),
         T: Send + Any + 'static,
     {
+        #[cold]
+        unsafe fn create_metatable<'lua, T, F>(
+            raw_lua: LuaContext,
+            metatable: F,
+            tid_ptr: *const i8,
+            tid_len: usize,
+        ) where
+            F: FnOnce(LuaTable<OpaqueLua<'lua>>),
+            T: Send + Any + 'static,
+        {
+            // Create and register a metatable for T.
+            ffi::lua_pop(raw_lua.as_ptr(), 1);
+            ffi::lua_createtable(raw_lua.as_ptr(), 0, mem::needs_drop::<T>() as i32);
+            ffi::lua_pushlstring(raw_lua.as_ptr(), tid_ptr, tid_len);
+            ffi::lua_pushvalue(raw_lua.as_ptr(), -2);
+            ffi::lua_rawset(raw_lua.as_ptr(), ffi::LUA_REGISTRYINDEX);
+
+            // Only assign "__gc" if T needs to be dropped.
+            if mem::needs_drop::<T>() {
+                "__gc".push_no_err(raw_lua).forget();
+                ffi::lua_pushcfunction(raw_lua.as_ptr(), Some(destructor_wrapper::<T>));
+                ffi::lua_rawset(raw_lua.as_ptr(), -3);
+            }
+
+            // Calling the metatable closure.
+            let mut guard = PushGuard::new(raw_lua, 1);
+            let mtl = OpaqueLua(guard.as_mut_lua(), PhantomData);
+            metatable(LuaRead::lua_read(mtl).ok().unwrap());
+            guard.forget();
+        }
+
         let raw_lua = lua.as_mut_lua();
         raw::push::<T>(data, raw_lua);
 
         // Get TypeId of T.
         let typeid = TypeId::of::<T>();
-        let typeid_ptr = addr_of!(typeid).cast();
-        let typeid_size = std::mem::size_of::<TypeId>();
+        let tid_ptr = addr_of!(typeid).cast();
+        let tid_len = std::mem::size_of::<TypeId>();
 
-        // Get the metatable if one already exist
-        ffi::lua_pushlstring(raw_lua.as_ptr(), typeid_ptr, typeid_size);
+        // Get the metatable if one already exists.
+        ffi::lua_pushlstring(raw_lua.as_ptr(), tid_ptr, tid_len);
         ffi::lua_rawget(raw_lua.as_ptr(), ffi::LUA_REGISTRYINDEX);
 
-        //| -2 userdata (data: T)
-        //| -1 nil | table (metatable)
+        // If no metatable exists, create one.
         if ffi::lua_isnil(raw_lua.as_ptr(), -1) {
-            //| -2 userdata (data: T)
-            //| -1 nil
-
-            // Creating and registering the type T's metatable.
-            {
-                ffi::lua_pop(raw_lua.as_ptr(), 1);
-                //| -1 userdata (data: T)
-                ffi::lua_createtable(raw_lua.as_ptr(), 0, mem::needs_drop::<T>() as i32);
-                //| -2 userdata (data: T)
-                //| -1 table (metatable)
-                ffi::lua_pushlstring(raw_lua.as_ptr(), typeid_ptr, typeid_size);
-                //| -3 userdata (data: T)
-                //| -2 table (metatable)
-                //| -1 string (typeid)
-                ffi::lua_pushvalue(raw_lua.as_ptr(), -2);
-                //| -4 userdata (data: T)
-                //| -3 table (metatable)
-                //| -2 string (typeid)
-                //| -1 table (metatable)
-                ffi::lua_rawset(raw_lua.as_ptr(), ffi::LUA_REGISTRYINDEX);
-                //| -2 userdata (data: T)
-                //| -1 table (metatable)
-            }
-
-            // Index "__gc" in the metatable calls the object's destructor.
-            // Only assign it if the type T needs to be explicitly dropped.
-            if mem::needs_drop::<T>() {
-                "__gc".push_no_err(raw_lua).forget();
-                //| -3 userdata (data: T)
-                //| -2 table (metatable)
-                //| -1 string ("__gc")
-                ffi::lua_pushcfunction(raw_lua.as_ptr(), Some(destructor_wrapper::<T>));
-                //| -4 userdata (data: T)
-                //| -3 table (metatable)
-                //| -2 string ("__gc")
-                //| -1 cfunction (destructor_wrapper::<T>)
-                ffi::lua_rawset(raw_lua.as_ptr(), -3);
-                //| -2 userdata (data: T)
-                //| -1 table (metatable)
-            }
-
-            // Calling the metatable closure.
-            {
-                let mut guard = PushGuard::new(raw_lua, 1);
-                let mtl = OpaqueLua(guard.as_mut_lua(), PhantomData);
-                metatable(LuaRead::lua_read(mtl).ok().unwrap());
-                guard.forget();
-            }
+            create_metatable::<'_, T, _>(raw_lua, metatable, tid_ptr, tid_len);
         }
-        //| -2 userdata (data: T)
-        //| -1 table (metatable)
 
         ffi::lua_setmetatable(raw_lua.as_ptr(), -2);
-        //| -1 userdata (data: T)
     }
 
     let raw_lua = lua.as_mut_lua();
