@@ -8,14 +8,6 @@ use std::{
     process::Command,
 };
 
-fn envize(string: impl AsRef<str>) -> String {
-    string.as_ref().to_ascii_uppercase().replace("-", "_")
-}
-
-fn feature(feature: &str) -> bool {
-    env::var(format!("CARGO_FEATURE_{}", envize(feature))).is_ok()
-}
-
 #[rustfmt::skip]
 fn with_defines(cc: &mut cc::Build) -> &mut cc::Build {
     cc  // LuaJIT defines
@@ -106,14 +98,6 @@ fn generate_bindings(header_name: &str) {
     bindings
         .write_to_file(PathBuf::from(env::var("OUT_DIR").unwrap()).join("bindings.rs"))
         .expect("Couldn't write bindings!");
-}
-
-fn linker(target: impl AsRef<str>) -> Command {
-    env::var("RUSTC_LINKER")
-        .ok()
-        .map(Command::new) // TODO: Do we need to things here?
-        .or_else(|| find(target.as_ref(), "link.exe"))
-        .expect("Failed to find linker")
 }
 
 fn build_luajit(luajit_dir: &str) -> io::Result<&'static str> {
@@ -224,6 +208,22 @@ fn build_luajit(luajit_dir: &str) -> io::Result<&'static str> {
         .compile("lua51");
 
     Ok(LIB_NAME)
+}
+
+fn linker(target: impl AsRef<str>) -> Command {
+    env::var("RUSTC_LINKER")
+        .ok()
+        .map(Command::new) // TODO: Do we need to things here?
+        .or_else(|| find(target.as_ref(), "link.exe"))
+        .expect("Failed to find linker")
+}
+
+fn envize(string: impl AsRef<str>) -> String {
+    string.as_ref().to_ascii_uppercase().replace("-", "_")
+}
+
+fn feature(feature: &str) -> bool {
+    env::var(format!("CARGO_FEATURE_{}", envize(feature))).is_ok()
 }
 
 fn glob(path: impl AsRef<Path>) -> impl IntoIterator<Item = PathBuf> {
