@@ -149,7 +149,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
         .spawn()?
         .wait()?;
 
-    cc::Build::new()
+    with_defines(&mut cc::Build::new())
         .cargo_metadata(false)
         .define("_CRT_SECURE_NO_DEPRECATE", None)
         .define("_CRT_STDIO_INLINE=__inline", None)
