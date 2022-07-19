@@ -61,18 +61,17 @@ fn with_defines(cc: &mut cc::Build) -> &mut cc::Build {
 }
 
 fn main() {
-    let wrapper_name = "ffi.h";
-    let luajit_dir = format!("{}/lua", env!("CARGO_MANIFEST_DIR"));
+    generate_bindings("ffi.h");
+    println!("cargo:rerun-if-changed=ffi.h");
+    println!("cargo:rerun-if-env-changed=CXX");
 
-    dbg!(&luajit_dir);
+    let base_dir = env::var_os("CARGO_MANIFEST_DIR").unwrap();
+    let lib_name = env::var("CARGO_MANIFEST_LINKS").unwrap();
 
-    generate_bindings(wrapper_name);
-
-    let lib_name = build_luajit(&luajit_dir).unwrap();
+    build_luajit(&lib_name, Path::new(&base_dir).join("lua")).unwrap();
 
     println!("cargo:lib-name={}", lib_name);
     println!("cargo:rustc-link-lib=static={}", lib_name);
-    println!("cargo:rerun-if-changed={}", wrapper_name);
 }
 
 fn generate_bindings(header_name: &str) {
@@ -100,9 +99,7 @@ fn generate_bindings(header_name: &str) {
         .expect("Couldn't write bindings!");
 }
 
-fn build_luajit(luajit_dir: &str) -> io::Result<&'static str> {
-    const LIB_NAME: &str = "lua51";
-
+fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> {
     let target = &env::var("TARGET").unwrap();
     let outdir = env::var_os("OUT_DIR").unwrap();
 
@@ -112,7 +109,7 @@ fn build_luajit(luajit_dir: &str) -> io::Result<&'static str> {
     let outdir = Path::new(&outdir);
     let luadir = outdir.join("lua");
 
-    dir::copy(&luajit_dir, &outdir, &CopyOptions { overwrite: true, ..Default::default() })
+    dir::copy(luajit_dir, &outdir, &CopyOptions { overwrite: true, ..Default::default() })
         .expect("failed to copy luajit source to out dir");
 
     cc::Build::new()
@@ -142,11 +139,11 @@ fn build_luajit(luajit_dir: &str) -> io::Result<&'static str> {
         .args_if(!feature("disable_jit"), ["-D", "JIT"])
         .args_if(feature("no_unwind"),    ["-D", "NO_UNWIND"])
         .args_if_each([
-            (target_arch == "x86_64",    ["-D", "P64"]),
+            (target_arch == "x86_64", ["-D", "P64"]),
         ])
         .args_if_each([
-            (target_arch == "x86_64",  ["vm_x64.dasc"]),
-            (target_arch == "x86",     ["vm_x86.dasc"]),
+            (target_arch == "x86_64", ["vm_x64.dasc"]),
+            (target_arch == "x86",    ["vm_x86.dasc"]),
         ])
         .log()
         .spawn()?
@@ -205,9 +202,11 @@ fn build_luajit(luajit_dir: &str) -> io::Result<&'static str> {
         .files(glob(luadir.join("src/lj_*.c")))
         .files(glob(luadir.join("src/lib_*.c")))
         .object(luadir.join("src/lj_vm.obj"))
-        .compile("lua51");
+        // The CC crate defaults to IA32 when using clang-cl, which is a ridiculous default.
+        .flag_if_supported("-arch:AVX2")
+        .compile(lib_name);
 
-    Ok(LIB_NAME)
+    Ok(())
 }
 
 fn linker(target: impl AsRef<str>) -> Command {
