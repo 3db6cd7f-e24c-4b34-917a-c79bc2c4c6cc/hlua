@@ -210,11 +210,24 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
 }
 
 fn linker(target: impl AsRef<str>) -> Command {
-    env::var("RUSTC_LINKER")
-        .ok()
-        .map(Command::new) // TODO: Do we need to things here?
-        .or_else(|| find(target.as_ref(), "link.exe"))
-        .expect("Failed to find linker")
+    let msvc = find(target.as_ref(), "link.exe");
+
+    if let Some(exe) = env::var("RUSTC_LINKER").ok() {
+        let mut command = Command::new(exe);
+
+        // Steal environment variables, this helps with finding libraries on Windows.
+        // We could resolve these ourselves but stealing them from `cc` is easier.
+        for (key, val) in msvc.iter().flat_map(|x| x.get_envs()) {
+            match val {
+                Some(val) => command.env(key, val),
+                None => command.env_remove(key),
+            };
+        }
+
+        command
+    } else {
+        msvc.expect("failed to find linker")
+    }
 }
 
 fn envize(string: impl AsRef<str>) -> String {
