@@ -58,6 +58,7 @@ fn with_defines(cc: &mut cc::Build) -> &mut cc::Build {
         .define_if(feature("disable_lib_debug"),             "WB_DISABLE_LIB_DEBUG", None)
         .define_if(feature("disable_lib_bit"),               "WB_DISABLE_LIB_BIT", None)
         .define_if(feature("disable_lib_jit"),               "WB_DISABLE_LIB_JIT", None)
+        .define_if(feature("disable_func_loadfile"),         "WB_DISABLE_FUNC_LOADFILE", None)
 }
 
 fn main() {

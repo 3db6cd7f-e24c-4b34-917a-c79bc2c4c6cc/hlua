@@ -84,6 +84,10 @@ static const char *reader_file(lua_State *L, void *ud, size_t *size)
 LUALIB_API int luaL_loadfilex(lua_State *L, const char *filename,
 			      const char *mode)
 {
+  #ifdef WB_DISABLE_FUNC_LOADFILE
+  return LUA_ERRFILE;
+  #endif
+
   FileReaderCtx ctx;
   int status;
   const char *chunkname;
