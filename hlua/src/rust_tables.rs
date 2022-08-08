@@ -366,7 +366,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{AnyHashableLuaValue, AnyLuaValue, Lua, LuaTable};
+    use crate::{AnyHashableLuaValue, AnyLuaValue, IntoIteratorWrapper, Lua, LuaTable};
     use std::collections::{BTreeMap, HashMap, HashSet};
 
     #[test]
@@ -424,6 +424,17 @@ mod tests {
             .collect();
 
         assert_eq!(values, set);
+    }
+
+    #[test]
+    fn write_iterator() {
+        let mut lua = Lua::new();
+
+        let data = 0..15;
+        lua.set("a", IntoIteratorWrapper(data.clone()));
+
+        let values: Vec<i32> = lua.get("a").unwrap();
+        assert_eq!(values, (0..15i32).collect::<Vec<_>>());
     }
 
     #[test]
