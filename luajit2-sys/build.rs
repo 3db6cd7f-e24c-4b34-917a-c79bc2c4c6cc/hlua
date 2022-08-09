@@ -38,9 +38,9 @@ fn with_defines(cc: &mut cc::Build) -> &mut cc::Build {
         .define_if(feature("security_strid_reseed_15"),      "LUAJIT_SECURITY_STRID", Some("2"))
         .define_if(feature("security_strid_random"),         "LUAJIT_SECURITY_STRID", Some("3"))
         .define_if(feature("use_gdbjit"),                    "LUAJIT_USE_GDBJIT", None)
-        .define_if(feature("use_perftools"),                 "LUAJIT_PERFTOOLS", None)
-        .define_if(feature("use_sysmalloc"),                 "LUAJIT_SYSMALLOC", None)
-        .define_if(feature("use_valgrind"),                  "LUAJIT_VALGRIND", None)
+        .define_if(feature("use_perftools"),                 "LUAJIT_USE_PERFTOOLS", None)
+        .define_if(feature("use_sysmalloc"),                 "LUAJIT_USE_SYSMALLOC", None)
+        .define_if(feature("use_valgrind"),                  "LUAJIT_USE_VALGRIND", None)
         .define_if(feature("nummode_single"),                "LUAJIT_NUMMODE", Some("1"))
         .define_if(feature("nummode_dual"),                  "LUAJIT_NUMMODE", Some("2"))
         // Lua defines
