@@ -509,6 +509,7 @@ LJLIB_CF(newproxy)
 LJLIB_PUSH("tostring")
 LJLIB_CF(print)
 {
+  #ifndef WB_DISABLE_FUNC_BASE_PRINT
   ptrdiff_t i, nargs = L->top - L->base;
   cTValue *tv = lj_tab_getstr(tabref(L->env), strV(lj_lib_upvalue(L, 1)));
   int shortcut;
@@ -543,6 +544,7 @@ LJLIB_CF(print)
     fwrite(str, 1, size, stdout);
   }
   putchar('\n');
+  #endif
   return 0;
 }
 

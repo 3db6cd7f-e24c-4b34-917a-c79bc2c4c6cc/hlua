@@ -149,30 +149,21 @@ use_assert = []
 # Disables the ability to dynamically load libraries from Lua
 disable_dylibs = []
 
-# Disables the base library
-disable_lib_base = []
-# Disables the package library
-disable_lib_package = []
-# Disables the table library
-disable_lib_table = []
-# Disables the io library
-disable_lib_io = []
-# Disables the os library
-disable_lib_os = []
-# Disables the string library
-disable_lib_string = []
-# Disables the math library
-disable_lib_math = []
-# Disables the debug library
-disable_lib_debug = []
-# Disables the bit library
-disable_lib_bit = []
-# Disables the jit library
-disable_lib_jit = []
-# Disables the loadfile and loadfilex functions
-disable_func_loadfile = []
-# Turns `debug.debug` into a no-op
-disable_func_debug_debug = []
+disable_lib_base = []    # Disables the base library
+disable_lib_package = [] # Disables the package library
+disable_lib_table = []   # Disables the table library
+disable_lib_io = []      # Disables the io library
+disable_lib_os = []      # Disables the os library
+disable_lib_string = []  # Disables the string library
+disable_lib_math = []    # Disables the math library
+disable_lib_debug = []   # Disables the debug library
+disable_lib_bit = []     # Disables the bit library
+disable_lib_jit = []     # Disables the jit library
+
+disable_func_loadfile = [] # Disables the loadfile and loadfilex functions
+
+disable_func_debug_debug = [] # Turns `debug.debug` into a no-op
+disable_func_base_print = []  # Turns `print` into a no-op
 
 [dependencies]
 libc = "^0.2"
