@@ -361,6 +361,7 @@ LJLIB_CF(debug_gethook)
 
 LJLIB_CF(debug_debug)
 {
+  #ifndef WB_DISABLE_FUNC_DEBUG_DEBUG
   for (;;) {
     char buffer[250];
     fputs("lua_debug> ", stderr);
@@ -375,6 +376,7 @@ LJLIB_CF(debug_debug)
     }
     lua_settop(L, 0);  /* remove eventual returns */
   }
+  #endif
 }
 
 /* ------------------------------------------------------------------------ */

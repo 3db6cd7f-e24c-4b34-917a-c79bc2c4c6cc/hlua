@@ -171,6 +171,8 @@ disable_lib_bit = []
 disable_lib_jit = []
 # Disables the loadfile and loadfilex functions
 disable_func_loadfile = []
+# Turns `debug.debug` into a no-op
+disable_func_debug_debug = []
 
 [dependencies]
 libc = "^0.2"
