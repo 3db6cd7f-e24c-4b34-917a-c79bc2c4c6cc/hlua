@@ -418,15 +418,7 @@ pub trait PushOne<L>: Push<L> {}
 /// Type that cannot be instantiated.
 ///
 /// Will be replaced with `!` eventually (https://github.com/rust-lang/rust/issues/35121).
-#[derive(Debug, Copy, Clone)]
-pub enum Void {}
-// TODO: use `!` instead (https://github.com/rust-lang/rust/issues/35121)
-
-impl fmt::Display for Void {
-    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
-        unreachable!("Void cannot be instantiated")
-    }
-}
+pub type Void = std::convert::Infallible;
 
 /// Types that can be obtained from a Lua context.
 ///

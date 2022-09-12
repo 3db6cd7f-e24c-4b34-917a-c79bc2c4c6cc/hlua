@@ -390,22 +390,6 @@ where
     }
 }
 
-impl Error for LuaFunctionCallError<Void> {
-    fn description(&self) -> &str {
-        match *self {
-            LuaFunctionCallError::LuaError(_) => "Lua error",
-            _ => unreachable!("Void cannot be instantiated"),
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn Error> {
-        match *self {
-            LuaFunctionCallError::LuaError(ref lua_error) => Some(lua_error),
-            _ => unreachable!("Void cannot be instantiated"),
-        }
-    }
-}
-
 impl<'lua, L> LuaRead<L> for LuaFunction<L>
 where
     L: AsMutLua<'lua>,
