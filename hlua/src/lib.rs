@@ -282,7 +282,7 @@ impl<'lua> OpaqueLua<'lua> {
 /// in Rust code to be out of sync with the Lua stack.
 type LuaContext = NonNull<ffi::lua_State>;
 
-unsafe impl<'a, 'lua> AsLua<'lua> for LuaContext {
+unsafe impl<'lua> AsLua<'lua> for LuaContext {
     #[inline]
     fn as_lua(&self) -> LuaContext {
         *self
@@ -296,7 +296,7 @@ unsafe impl<'lua> AsMutLua<'lua> for LuaContext {
     }
 }
 
-unsafe impl<'a, 'lua> AsLua<'lua> for Lua<'lua> {
+unsafe impl<'lua> AsLua<'lua> for Lua<'lua> {
     #[inline]
     fn as_lua(&self) -> LuaContext {
         self.lua
@@ -343,9 +343,9 @@ unsafe impl<'lua> AsMutLua<'lua> for OpaqueLua<'lua> {
     }
 }
 
-unsafe impl<'a, 'lua, L: ?Sized> AsLua<'lua> for &'a L
+unsafe impl<'a, 'lua, L> AsLua<'lua> for &'a L
 where
-    L: AsLua<'lua>,
+    L: AsLua<'lua> + ?Sized,
 {
     #[inline]
     fn as_lua(&self) -> LuaContext {
@@ -353,9 +353,9 @@ where
     }
 }
 
-unsafe impl<'a, 'lua, L: ?Sized> AsLua<'lua> for &'a mut L
+unsafe impl<'a, 'lua, L> AsLua<'lua> for &'a mut L
 where
-    L: AsLua<'lua>,
+    L: AsLua<'lua> + ?Sized,
 {
     #[inline]
     fn as_lua(&self) -> LuaContext {
@@ -363,9 +363,9 @@ where
     }
 }
 
-unsafe impl<'a, 'lua, L: ?Sized> AsMutLua<'lua> for &'a mut L
+unsafe impl<'a, 'lua, L> AsMutLua<'lua> for &'a mut L
 where
-    L: AsMutLua<'lua>,
+    L: AsMutLua<'lua> + ?Sized,
 {
     #[inline]
     fn as_mut_lua(&mut self) -> LuaContext {
@@ -393,8 +393,7 @@ pub trait Push<L> {
     #[inline]
     fn push_no_err<E>(self, lua: L) -> PushGuard<L>
     where
-        Self: Sized,
-        Self: Push<L, Err = E>,
+        Self: Sized + Push<L, Err = E>,
         E: Into<Void>,
     {
         match self.push_to_lua(lua) {
@@ -417,7 +416,7 @@ pub trait PushOne<L>: Push<L> {}
 
 /// Type that cannot be instantiated.
 ///
-/// Will be replaced with `!` eventually (https://github.com/rust-lang/rust/issues/35121).
+/// Will be replaced with `!` eventually (<https://github.com/rust-lang/rust/issues/35121>).
 pub type Void = std::convert::Infallible;
 
 /// Types that can be obtained from a Lua context.
@@ -459,37 +458,31 @@ pub enum LuaError {
 
 impl fmt::Display for LuaError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use LuaError::*;
-
         match self {
-            SyntaxError(s) => write!(f, "Syntax error: {}", s),
-            ExecutionError(s) => write!(f, "Execution error: {}", s),
-            ReadError(e) => write!(f, "Read error: {}", e),
-            WrongType => write!(f, "Wrong type returned by Lua"),
+            LuaError::SyntaxError(s) => write!(f, "Syntax error: {}", s),
+            LuaError::ExecutionError(s) => write!(f, "Execution error: {}", s),
+            LuaError::ReadError(e) => write!(f, "Read error: {}", e),
+            LuaError::WrongType => write!(f, "Wrong type returned by Lua"),
         }
     }
 }
 
 impl Error for LuaError {
     fn description(&self) -> &str {
-        use LuaError::*;
-
         match self {
-            SyntaxError(ref s) => s,
-            ExecutionError(ref s) => s,
-            ReadError(_) => "read error",
-            WrongType => "wrong type returned by Lua",
+            LuaError::SyntaxError(ref s) => s,
+            LuaError::ExecutionError(ref s) => s,
+            LuaError::ReadError(_) => "read error",
+            LuaError::WrongType => "wrong type returned by Lua",
         }
     }
 
     fn cause(&self) -> Option<&dyn Error> {
-        use LuaError::*;
-
         match self {
-            SyntaxError(_) => None,
-            ExecutionError(_) => None,
-            ReadError(e) => Some(e),
-            WrongType => None,
+            LuaError::SyntaxError(_) => None,
+            LuaError::ExecutionError(_) => None,
+            LuaError::ReadError(e) => Some(e),
+            LuaError::WrongType => None,
         }
     }
 }

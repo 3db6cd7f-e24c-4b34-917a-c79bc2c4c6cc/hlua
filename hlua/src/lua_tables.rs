@@ -215,16 +215,16 @@ where
             let my_offset = self.offset(-2);
 
             let mut guard = match index.push_to_lua(self) {
+                Err((err, _)) => return Err(CheckedSetError::KeyPushError(err)),
                 Ok(guard) => {
                     assert_eq!(guard.size, 1);
                     guard
                 },
-                Err((err, _)) => return Err(CheckedSetError::KeyPushError(err)),
             };
 
             match value.push_to_lua(&mut guard) {
-                Ok(pushed) => pushed.assert_one_and_forget(),
                 Err((err, _)) => return Err(CheckedSetError::ValuePushError(err)),
+                Ok(pushed) => pushed.assert_one_and_forget(),
             };
 
             guard.forget();
@@ -241,18 +241,16 @@ where
         E: Into<Void>,
     {
         // TODO: cleaner implementation
+        // TODO: If the second push panics the first index is left on the stack, corrupting it
         unsafe {
             let mut me = self;
             match index.clone().push_to_lua(&mut me) {
-                Ok(pushed) => {
-                    assert_eq!(pushed.size, 1);
-                    pushed.forget()
-                },
+                Ok(pushed) => pushed.assert_one_and_forget(),
                 Err(_) => panic!(), // TODO:
             };
 
             match [0u8; 0].push_to_lua(&mut me) {
-                Ok(pushed) => pushed.forget(),
+                Ok(pushed) => pushed.assert_one_and_forget(),
                 Err(_) => panic!(), // TODO:
             };
 

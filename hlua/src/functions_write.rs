@@ -318,7 +318,7 @@ where
 {
     #[cold]
     #[inline(never)]
-    fn err_wrong_type<'a>(lua: LuaContext) -> ! {
+    fn err_wrong_type(lua: LuaContext) -> ! {
         "wrong parameter types for callback function".push_no_err(lua).forget_internal();
         unsafe { ffix::lua_error(lua.as_ptr()) };
     }
@@ -339,7 +339,7 @@ where
         Err(_) => err_wrong_type(tmp_lua.lua),
     };
 
-    let data: &mut T = unsafe { &mut *data_raw.cast::<T>() };
+    let data = unsafe { &mut *data_raw.cast::<T>() };
     let ret_value = data.call_mut(args);
 
     // pushing back the result of the function on the stack

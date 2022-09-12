@@ -172,14 +172,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{AnyHashableLuaValue, AnyLuaString, AnyLuaValue, Lua};
+    use crate::{AnyHashableLuaValue, AnyLuaString, AnyLuaValue, Lua, LuaFunction};
 
     #[test]
     fn read_numbers() {
         let mut lua = Lua::new();
 
-        let val: AnyLuaValue =
-            crate::LuaFunction::load(&mut lua, "return 2.5;").unwrap().call().unwrap();
+        let val: AnyLuaValue = LuaFunction::load(&mut lua, "return 2.5;").unwrap().call().unwrap();
         assert_eq!(val, AnyLuaValue::LuaNumber(2.5));
 
         lua.set("a", "-2");

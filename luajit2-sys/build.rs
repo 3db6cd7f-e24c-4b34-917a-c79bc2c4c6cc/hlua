@@ -221,7 +221,7 @@ fn linker(target: impl AsRef<str>) -> Command {
 
         // Steal environment variables, this helps with finding libraries on Windows.
         // We could resolve these ourselves but stealing them from `cc` is easier.
-        for (key, val) in msvc.iter().flat_map(|x| x.get_envs()) {
+        for (key, val) in msvc.iter().flat_map(Command::get_envs) {
             match val {
                 Some(val) => command.env(key, val),
                 None => command.env_remove(key),

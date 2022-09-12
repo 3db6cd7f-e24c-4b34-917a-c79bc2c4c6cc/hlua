@@ -56,8 +56,8 @@ mod raw {
     /// Creates a userdata value and writes it to the pointer returned by `alloc`.
     ///
     /// # SAFETY
-    /// The pointer returned by `alloc` must be aligned to `ALLOCATOR_ALIGNMENT` and point to valid
-    /// memory.
+    /// The pointer returned by `alloc` must be aligned to `GUARANTEED_ALIGNMENT_ALLOC` and point
+    /// to valid memory.
     #[inline(always)]
     pub unsafe fn create<T: 'static, A>(item: T, alloc: A) -> *mut c_void
     where
@@ -69,7 +69,7 @@ mod raw {
             false => align_of::<T>().saturating_sub(GUARANTEED_ALIGNMENT_DATA),
         };
 
-        let full = alloc(size_of::<Head>() + head_pad + size_of::<T>() + data_pad);
+        let full = alloc(head_pad + size_of::<Head>() + data_pad + size_of::<T>());
         debug_assert_eq!(full as usize % GUARANTEED_ALIGNMENT_ALLOC, 0);
 
         std::ptr::write(head_ptr(full), Head::of::<T>());
@@ -138,7 +138,7 @@ mod raw {
         /// Returns a mutable reference to the inner data.
         ///
         /// This also checks so that the pointer is not null and validates that the type matches.
-        /// If you know that the pointer is valid, you can use [`data_mut`] instead.
+        /// If you know that the pointer is valid you can use [`data_mut`] instead.
         pub unsafe fn data_mut_checked<'a, T: 'static>(ptr: *mut c_void) -> Option<&'a mut T> {
             (!ptr.is_null() && validate_type::<T>(ptr)).then(|| data_mut::<T>(ptr))
         }
@@ -204,7 +204,7 @@ where
         {
             // Create and register a metatable for T.
             ffi::lua_pop(raw_lua.as_ptr(), 1);
-            ffi::lua_createtable(raw_lua.as_ptr(), 0, mem::needs_drop::<T>() as i32);
+            ffi::lua_createtable(raw_lua.as_ptr(), 0, i32::from(mem::needs_drop::<T>()));
             ffi::lua_pushlstring(raw_lua.as_ptr(), tid_ptr, tid_len);
             ffi::lua_pushvalue(raw_lua.as_ptr(), -2);
             ffi::lua_rawset(raw_lua.as_ptr(), ffi::LUA_REGISTRYINDEX);

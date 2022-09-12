@@ -32,11 +32,6 @@ macro_rules! integer_impl(
     );
 );
 
-integer_impl!(i8);
-integer_impl!(i16);
-integer_impl!(i32);
-// integer_impl!(i64)   // data loss
-
 macro_rules! unsigned_impl(
     ($t:ident) => (
         impl<'lua, L> Push<L> for $t where L: AsMutLua<'lua> {
@@ -77,11 +72,6 @@ macro_rules! unsigned_impl(
     );
 );
 
-unsigned_impl!(u8);
-unsigned_impl!(u16);
-unsigned_impl!(u32);
-// unsigned_impl!(u64);   // data loss
-
 macro_rules! numeric_impl(
     ($t:ident) => (
         impl<'lua, L> Push<L> for $t where L: AsMutLua<'lua> {
@@ -112,6 +102,16 @@ macro_rules! numeric_impl(
     );
 );
 
+integer_impl!(i8);
+integer_impl!(i16);
+integer_impl!(i32);
+// integer_impl!(i64)   // data loss
+
+unsigned_impl!(u8);
+unsigned_impl!(u16);
+unsigned_impl!(u32);
+// unsigned_impl!(u64);   // data loss
+
 numeric_impl!(f32);
 numeric_impl!(f64);
 
@@ -123,16 +123,18 @@ where
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
+        let raw_lua = lua.as_mut_lua();
+        let bytes = self.as_bytes();
+
         unsafe {
-            let raw_lua = lua.as_mut_lua();
             ffi::lua_pushlstring(
                 raw_lua.as_ptr(),
-                self.as_bytes().as_ptr().cast(),
-                self.as_bytes().len() as libc::size_t,
+                bytes.as_ptr().cast(),
+                bytes.len() as libc::size_t,
             );
-
-            Ok(PushGuard { lua, size: 1, raw_lua })
         }
+
+        Ok(PushGuard { lua, size: 1, raw_lua })
     }
 }
 
@@ -145,18 +147,15 @@ where
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<String, L> {
         let mut size = mem::MaybeUninit::uninit();
-        let c_str_raw =
-            unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
-        if c_str_raw.is_null() {
+        let c_str = unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
+        if c_str.is_null() {
             return Err(lua);
         }
 
         let size = unsafe { size.assume_init() };
-
-        let c_slice = unsafe { slice::from_raw_parts(c_str_raw.cast(), size) };
-        let maybe_string = String::from_utf8(c_slice.to_vec());
-        match maybe_string {
-            Ok(string) => Ok(string),
+        let c_slice = unsafe { slice::from_raw_parts(c_str.cast(), size) };
+        match std::str::from_utf8(c_slice) {
+            Ok(x) => Ok(x.to_string()),
             Err(_) => Err(lua),
         }
     }
@@ -173,12 +172,7 @@ where
         let AnyLuaString(v) = self;
         unsafe {
             let raw_lua = lua.as_mut_lua();
-            ffi::lua_pushlstring(
-                raw_lua.as_ptr(),
-                v[..].as_ptr().cast(),
-                v[..].len() as libc::size_t,
-            );
-
+            ffi::lua_pushlstring(raw_lua.as_ptr(), v.as_ptr().cast(), v.len() as libc::size_t);
             Ok(PushGuard { lua, size: 1, raw_lua })
         }
     }
@@ -191,15 +185,13 @@ where
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<AnyLuaString, L> {
         let mut size = mem::MaybeUninit::uninit();
-        let c_str_raw =
-            unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
-        if c_str_raw.is_null() {
+        let c_str = unsafe { ffi::lua_tolstring(lua.as_lua().as_ptr(), index, size.as_mut_ptr()) };
+        if c_str.is_null() {
             return Err(lua);
         }
 
         let size = unsafe { size.assume_init() };
-
-        let c_slice = unsafe { slice::from_raw_parts(c_str_raw.cast::<u8>(), size) };
+        let c_slice = unsafe { slice::from_raw_parts(c_str.cast(), size) };
         Ok(AnyLuaString(c_slice.to_vec()))
     }
 }
@@ -269,11 +261,10 @@ where
 
         // Ensure that the string is valid UTF-8.
         let slice = unsafe { slice::from_raw_parts(ptr.cast(), len) };
-        if str::from_utf8(slice).is_err() {
-            return Err(lua);
+        match str::from_utf8(slice) {
+            Ok(_) => Ok(StringInLua { _lua: PhantomData, ptr, len }),
+            Err(_) => Err(lua),
         }
-
-        Ok(StringInLua { _lua: PhantomData, ptr, len })
     }
 }
 
@@ -296,7 +287,7 @@ where
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
         let raw_lua = lua.as_mut_lua();
-        unsafe { ffi::lua_pushboolean(raw_lua.as_ptr(), self as libc::c_int) };
+        unsafe { ffi::lua_pushboolean(raw_lua.as_ptr(), libc::c_int::from(self)) };
         Ok(PushGuard { lua, size: 1, raw_lua })
     }
 }
@@ -310,11 +301,10 @@ where
     #[inline]
     fn lua_read_at_position(lua: L, index: i32) -> Result<bool, L> {
         let raw_lua = lua.as_lua();
-        if !unsafe { ffi::lua_isboolean(raw_lua.as_ptr(), index) } {
-            return Err(lua);
+        match unsafe { ffi::lua_isboolean(raw_lua.as_ptr(), index) } {
+            true => Ok(unsafe { ffi::lua_toboolean(raw_lua.as_ptr(), index) != 0 }),
+            false => Err(lua),
         }
-
-        Ok(unsafe { ffi::lua_toboolean(raw_lua.as_ptr(), index) != 0 })
     }
 }
 
@@ -403,6 +393,8 @@ impl<'lua, 'str, L> PushOne<L> for Cow<'str, str> where L: AsMutLua<'lua> {}
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use crate::{AnyLuaString, AnyLuaValue, Lua, StringInLua};
 
     #[test]
@@ -683,5 +675,16 @@ mod tests {
 
         assert_eq!(lua.execute::<bool>("return is_some('foo')").unwrap(), true);
         assert_eq!(lua.execute::<bool>("return is_some(nil)").unwrap(), false);
+    }
+
+    #[test]
+    fn push_cow_str() {
+        let mut lua = Lua::new();
+
+        lua.set("ref_value", Cow::Borrowed("foo"));
+        lua.set("own_value", Cow::Owned("bar".to_string()));
+
+        assert_eq!(lua.get("ref_value"), Some("foo".to_string()));
+        assert_eq!(lua.get("own_value"), Some("bar".to_string()));
     }
 }

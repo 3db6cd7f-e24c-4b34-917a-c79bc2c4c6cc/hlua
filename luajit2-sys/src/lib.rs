@@ -26,13 +26,13 @@ use core::ptr;
 /// <https://www.lua.org/manual/5.1/manual.html#lua_pop>
 #[inline]
 pub unsafe fn lua_pop(L: *mut lua_State, idx: libc::c_int) {
-    lua_settop(L, -(idx) - 1)
+    lua_settop(L, -(idx) - 1);
 }
 
 /// <https://www.lua.org/manual/5.1/manual.html#lua_newtable>
 #[inline]
 pub unsafe fn lua_newtable(L: *mut lua_State) {
-    lua_createtable(L, 0, 0)
+    lua_createtable(L, 0, 0);
 }
 
 /// <https://www.lua.org/manual/5.1/manual.html#lua_register>
@@ -104,8 +104,9 @@ pub unsafe fn lua_isnoneornil(L: *mut lua_State, idx: libc::c_int) -> bool {
 
 /// <https://www.lua.org/manual/5.1/manual.html#lua_pushliteral>
 #[inline]
+#[must_use]
 pub unsafe fn lua_pushliteral(L: *mut lua_State, s: &str) {
-    lua_pushlstring(L, s.as_ptr() as _, s.len() as _);
+    lua_pushlstring(L, s.as_ptr().cast(), s.len() as _);
 }
 
 /// <https://www.lua.org/manual/5.1/manual.html#lua_setglobal>
@@ -129,6 +130,7 @@ pub unsafe fn lua_tostring(L: *mut lua_State, idx: libc::c_int) -> *const libc::
 // Additional random things
 
 #[inline]
+#[must_use]
 pub unsafe fn lua_upvalueindex(i: libc::c_int) -> libc::c_int {
     LUA_GLOBALSINDEX - i
 }
@@ -137,6 +139,7 @@ pub unsafe fn lua_upvalueindex(i: libc::c_int) -> libc::c_int {
 
 /// `luaL_newstate()`
 #[inline]
+#[must_use]
 #[deprecated(since = "Lua 5.1", note = "replace with `luaL_newstate()`")]
 pub unsafe fn lua_open() -> *mut lua_State {
     luaL_newstate()
@@ -146,7 +149,7 @@ pub unsafe fn lua_open() -> *mut lua_State {
 #[inline]
 #[deprecated(since = "Lua 5.1", note = "replace with `lua_pushvalue(L, LUA_REGISTRYINDEX)`")]
 pub unsafe fn lua_getregistry(L: *mut lua_State) {
-    lua_pushvalue(L, LUA_REGISTRYINDEX)
+    lua_pushvalue(L, LUA_REGISTRYINDEX);
 }
 
 /// `lua_gc(L, LUA_GCCOUNT as _, 0)`

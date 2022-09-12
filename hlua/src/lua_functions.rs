@@ -118,7 +118,7 @@ where
                 }
             }
 
-            let (load_return_value, pushed_value) = {
+            let (load_retval, pushed_value) = {
                 let raw_lua = lua.as_mut_lua();
                 let code = ffi::lua_load(
                     raw_lua.as_ptr(),
@@ -136,7 +136,7 @@ where
                 return Err((LuaError::ReadError(error), pushed_value.into_inner()));
             }
 
-            if load_return_value == 0 {
+            if load_retval == 0 {
                 return Ok(pushed_value);
             }
 
@@ -144,15 +144,10 @@ where
                 .ok()
                 .expect("can't find error message at the top of the Lua stack");
 
-            if load_return_value == ffi::LUA_ERRMEM {
-                panic!("LUA_ERRMEM");
-            }
+            assert_ne!(load_retval, ffi::LUA_ERRMEM, "memory allocation error");
+            assert_eq!(load_retval, ffi::LUA_ERRSYNTAX, "unknown lua error");
 
-            if load_return_value == ffi::LUA_ERRSYNTAX {
-                return Err((LuaError::SyntaxError(error_msg), pushed_value.into_inner()));
-            }
-
-            panic!("Unknown error while calling lua_load");
+            return Err((LuaError::SyntaxError(error_msg), pushed_value.into_inner()));
         }
     }
 }

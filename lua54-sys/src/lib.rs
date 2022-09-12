@@ -9,6 +9,7 @@ pub use ffi::*;
 use core::ptr;
 use libc::c_int;
 
+#[must_use]
 #[inline(always)]
 pub fn lua_upvalueindex(i: c_int) -> c_int {
     LUA_REGISTRYINDEX - i
@@ -16,7 +17,7 @@ pub fn lua_upvalueindex(i: c_int) -> c_int {
 
 #[inline(always)]
 pub unsafe fn lua_pushunsigned(L: *mut lua_State, n: lua_Unsigned) {
-    lua_pushinteger(L, n as lua_Integer)
+    lua_pushinteger(L, n as lua_Integer);
 }
 
 #[inline(always)]
@@ -31,7 +32,7 @@ pub unsafe fn lua_newuserdata(L: *mut lua_State, sz: libc::size_t) -> *mut libc:
 
 #[inline(always)]
 pub unsafe fn lua_call(L: *mut lua_State, nargs: c_int, nresults: c_int) {
-    lua_callk(L, nargs, nresults, 0, None)
+    lua_callk(L, nargs, nresults, 0, None);
 }
 
 #[inline(always)]
@@ -46,23 +47,23 @@ pub unsafe fn lua_yield(L: *mut lua_State, nresults: c_int) -> c_int {
 
 #[inline(always)]
 pub unsafe fn lua_pop(L: *mut lua_State, n: c_int) {
-    lua_settop(L, -n - 1)
+    lua_settop(L, -n - 1);
 }
 
 #[inline(always)]
 pub unsafe fn lua_newtable(L: *mut lua_State) {
-    lua_createtable(L, 0, 0)
+    lua_createtable(L, 0, 0);
 }
 
 #[inline(always)]
 pub unsafe fn lua_register(L: *mut lua_State, name: *const libc::c_char, f: lua_CFunction) {
     lua_pushcfunction(L, f);
-    lua_setglobal(L, name)
+    lua_setglobal(L, name);
 }
 
 #[inline(always)]
 pub unsafe fn lua_pushcfunction(L: *mut lua_State, f: lua_CFunction) {
-    lua_pushcclosure(L, f, 0)
+    lua_pushcclosure(L, f, 0);
 }
 
 #[inline(always)]
@@ -109,7 +110,7 @@ pub unsafe fn lua_isnoneornil(L: *mut lua_State, idx: c_int) -> bool {
 
 #[inline(always)]
 pub unsafe fn lua_pushglobaltable(L: *mut lua_State) -> i32 {
-    lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS as _)
+    lua_rawgeti(L, LUA_REGISTRYINDEX, i64::from(LUA_RIDX_GLOBALS))
 }
 
 #[inline(always)]
