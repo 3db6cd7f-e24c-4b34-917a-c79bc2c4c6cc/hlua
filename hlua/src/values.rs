@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem, ops::Deref, slice, str};
+use std::{borrow::Cow, marker::PhantomData, mem, ops::Deref, slice, str};
 
 use crate::{AnyLuaString, AnyLuaValue, AsLua, AsMutLua, LuaRead, Push, PushGuard, PushOne, Void};
 
@@ -383,6 +383,23 @@ where
         Ok(None)
     }
 }
+
+impl<'lua, 'str, L> Push<L> for Cow<'str, str>
+where
+    L: AsMutLua<'lua>,
+{
+    type Err = Void;
+
+    #[inline]
+    fn push_to_lua(self, lua: L) -> Result<PushGuard<L>, (Void, L)> {
+        match self {
+            Cow::Borrowed(val) => val.push_to_lua(lua),
+            Cow::Owned(val) => val.push_to_lua(lua),
+        }
+    }
+}
+
+impl<'lua, 'str, L> PushOne<L> for Cow<'str, str> where L: AsMutLua<'lua> {}
 
 #[cfg(test)]
 mod tests {
