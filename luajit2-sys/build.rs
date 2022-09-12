@@ -216,7 +216,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
 fn linker(target: impl AsRef<str>) -> Command {
     let msvc = find(target.as_ref(), "link.exe");
 
-    if let Some(exe) = env::var("RUSTC_LINKER").ok() {
+    if let Ok(exe) = env::var("RUSTC_LINKER") {
         let mut command = Command::new(exe);
 
         // Steal environment variables, this helps with finding libraries on Windows.
@@ -235,7 +235,7 @@ fn linker(target: impl AsRef<str>) -> Command {
 }
 
 fn envize(string: impl AsRef<str>) -> String {
-    string.as_ref().to_ascii_uppercase().replace("-", "_")
+    string.as_ref().to_ascii_uppercase().replace('-', "_")
 }
 
 fn feature(feature: &str) -> bool {
