@@ -116,6 +116,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
     dir::copy(luajit_dir, &outdir, &CopyOptions { overwrite: true, ..Default::default() })
         .expect("failed to copy luajit source to out dir");
 
+    println!("Building minilua.");
     cc::Build::new()
         .cargo_metadata(false)
         .define("_CRT_SECURE_NO_DEPRECATE", None)
@@ -123,6 +124,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
         .file(outdir.join("lua/src/host/minilua.c"))
         .compile("minilua");
 
+    println!("Linking minilua.");
     linker(&target)
         .current_dir(&outdir)
         .arg("/nologo")
@@ -132,6 +134,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
         .spawn()?
         .wait()?;
 
+    println!("Executing minilua.");
     #[rustfmt::skip]
     Command::new(outdir.join("minilua.exe"))
         .current_dir(outdir.join("lua/src/"))
@@ -153,6 +156,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
         .spawn()?
         .wait()?;
 
+    println!("Building buildvm.");
     with_defines(&mut cc::Build::new())
         .cargo_metadata(false)
         .define("_CRT_SECURE_NO_DEPRECATE", None)
@@ -168,6 +172,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
         .out_dir(outdir.join("buildvm"))
         .compile("buildvm");
 
+    println!("Linking buildvm.");
     linker(&target)
         .current_dir(outdir.join("buildvm"))
         .arg("/nologo")
@@ -190,6 +195,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
         ("vmdef",   "jit/vmdef.lua", &["lib_base.c", "lib_math.c", "lib_bit.c", "lib_string.c", "lib_table.c", "lib_io.c", "lib_os.c", "lib_package.c", "lib_debug.c", "lib_jit.c", "lib_ffi.c", "lib_buffer.c"][..]),
     ];
 
+    println!("Running buildvm.");
     for (mode, output, inputs) in buildvm {
         Command::new(outdir.join("buildvm.exe"))
             .current_dir(luadir.join("src")) //
@@ -200,6 +206,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
             .spawn()?;
     }
 
+    println!("Building LuaJIT2 ({lib_name}).");
     with_defines(&mut cc::Build::new())
         .define("_CRT_SECURE_NO_DEPRECATE", None)
         .define("_CRT_STDIO_INLINE", "__inline")
