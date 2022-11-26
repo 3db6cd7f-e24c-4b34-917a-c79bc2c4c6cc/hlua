@@ -12,6 +12,9 @@ edition = "2021"
 [features]
 nightly = []
 
+# support for pushing / reading external types
+impl-hashbrown = ["dep:hashbrown"]
+
 # lua version selection, pick one
 luajit2 = ["luajit2-sys", "_luaapi_51", "_luaapi_lj2"]
 lua52   = ["lua52-sys",   "_luaapi_52"]
@@ -28,6 +31,9 @@ libc = "0.2"
 lua52-sys   = { path = "../lua52-sys",   optional = true }
 lua54-sys   = { path = "../lua54-sys",   optional = true }
 luajit2-sys = { path = "../luajit2-sys", optional = true }
+
+# external crates containing types we support
+hashbrown = { version = "0.13.1", optional = true }
 
 [dev-dependencies]
 criterion = "0.3"

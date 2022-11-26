@@ -364,6 +364,113 @@ where
 {
 }
 
+#[cfg(feature = "impl-hashbrown")]
+mod hashbrown {
+    use hashbrown::{HashMap, HashSet};
+
+    use crate::{
+        any::{AnyHashableLuaValue, AnyLuaValue},
+        AsMutLua, LuaRead, Push, PushGuard, PushOne, TuplePushError,
+    };
+
+    use std::{hash::Hash, iter};
+
+    use super::push_rec_iter;
+
+    impl<'lua, L, S> LuaRead<L> for HashMap<AnyHashableLuaValue, AnyLuaValue, S>
+    where
+        L: AsMutLua<'lua>,
+        S: std::hash::BuildHasher + Default,
+    {
+        // TODO: this should be implemented using the LuaTable API instead of raw Lua calls.
+        fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
+            let mut me = lua;
+            let raw_lua = me.as_mut_lua();
+            unsafe { ffi::lua_pushnil(raw_lua.as_ptr()) };
+            let index = index - 1;
+            let mut result = HashMap::<_, _, S>::default();
+
+            loop {
+                if unsafe { ffi::lua_next(raw_lua.as_ptr(), index) } == 0 {
+                    break;
+                }
+
+                let key = match LuaRead::lua_read_at_position(&mut me, -2).ok() {
+                    Some(k) => k,
+                    None => {
+                        // Cleaning up after ourselves
+                        unsafe { ffi::lua_pop(raw_lua.as_ptr(), 2) };
+                        return Err(me);
+                    },
+                };
+
+                let value: AnyLuaValue = LuaRead::lua_read_at_position(&mut me, -1).ok().unwrap();
+
+                unsafe { ffi::lua_pop(raw_lua.as_ptr(), 1) };
+
+                result.insert(key, value);
+            }
+
+            Ok(result)
+        }
+    }
+
+    // TODO: use an enum for the error to allow different error types for K and V
+    impl<'lua, L, K, V, E, S> Push<L> for HashMap<K, V, S>
+    where
+        L: AsMutLua<'lua>,
+        K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
+        V: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E>,
+        S: std::hash::BuildHasher,
+    {
+        type Err = E;
+
+        #[inline]
+        fn push_to_lua(self, lua: L) -> Result<PushGuard<L>, (E, L)> {
+            match push_rec_iter(lua, self.into_iter()) {
+                Ok(g) => Ok(g),
+                Err((TuplePushError::First(err), lua)) => Err((err, lua)),
+                Err((TuplePushError::Other(err), lua)) => Err((err, lua)),
+            }
+        }
+    }
+
+    impl<'lua, L, K, V, E, S> PushOne<L> for HashMap<K, V, S>
+    where
+        L: AsMutLua<'lua>,
+        K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
+        V: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E>,
+        S: std::hash::BuildHasher,
+    {
+    }
+
+    impl<'lua, L, K, E, S> Push<L> for HashSet<K, S>
+    where
+        L: AsMutLua<'lua>,
+        K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
+        S: std::hash::BuildHasher,
+    {
+        type Err = E;
+
+        #[inline]
+        fn push_to_lua(self, lua: L) -> Result<PushGuard<L>, (E, L)> {
+            match push_rec_iter(lua, self.into_iter().zip(iter::repeat(true))) {
+                Ok(g) => Ok(g),
+                Err((TuplePushError::First(err), lua)) => Err((err, lua)),
+                Err((TuplePushError::Other(_), _)) => unreachable!(),
+            }
+        }
+    }
+
+    impl<'lua, L, K, E, S> PushOne<L> for HashSet<K, S>
+    where
+        L: AsMutLua<'lua>,
+        K: for<'a, 'b> PushOne<&'a mut &'b mut L, Err = E> + Eq + Hash,
+        S: std::hash::BuildHasher,
+    {
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{AnyHashableLuaValue, AnyLuaValue, IntoIteratorWrapper, Lua, LuaTable};
