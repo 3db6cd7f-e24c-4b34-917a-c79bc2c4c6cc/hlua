@@ -33,7 +33,7 @@ lua54-sys   = { path = "../lua54-sys",   optional = true }
 luajit2-sys = { path = "../luajit2-sys", optional = true }
 
 # external crates containing types we support
-hashbrown = { version = "0.13.1", optional = true }
+hashbrown = { version = "0.13.1", optional = true, default-features = false }
 
 [dev-dependencies]
 criterion = "0.3"
