@@ -151,6 +151,8 @@ pub struct Function<F, P, R> {
     marker: PhantomData<(P, R)>,
 }
 
+type RawFunction = extern "C" fn(*mut ffi::lua_State) -> libc::c_int;
+
 /// Trait implemented on `Function` to mimic `FnMut`.
 ///
 /// We could in theory use the `FnMut` trait instead of this one, but it is still unstable.
@@ -172,7 +174,10 @@ extern "C" fn closure_destructor_wrapper<T>(lua: *mut ffi::lua_State) -> libc::c
 
 macro_rules! impl_function_ext {
     ($($p:ident),*) => (
-        impl<Z, R $(,$p)*> FunctionExt<($($p,)*)> for Function<Z, ($($p,)*), R> where Z: FnMut($($p),*) -> R {
+        impl<Z, R $(,$p)*> FunctionExt<($($p,)*)> for Function<Z, ($($p,)*), R>
+        where
+            Z: FnMut($($p),*) -> R
+        {
             type Output = R;
 
             #[allow(non_snake_case)]
@@ -184,10 +189,11 @@ macro_rules! impl_function_ext {
         }
 
         impl<'lua, L, Z, R $(,$p: 'static)*> Push<L> for Function<Z, ($($p,)*), R>
-                where L: AsMutLua<'lua>,
-                      Z: 'lua + FnMut($($p),*) -> R,
-                      ($($p,)*): for<'p> LuaRead<&'p mut InsideCallback>,
-                      R: for<'a> Push<&'a mut InsideCallback> + 'static
+        where
+            L: AsMutLua<'lua>,
+            Z: 'lua + FnMut($($p),*) -> R,
+            ($($p,)*): for<'p> LuaRead<&'p mut InsideCallback>,
+            R: for<'a> Push<&'a mut InsideCallback> + 'static
         {
             type Err = Void;
             #[inline]
@@ -197,8 +203,8 @@ macro_rules! impl_function_ext {
                     // TODO: What more exactly is Z, and do we need to ensure alignment?
 
                     // We can skip pushing the pointer when it's zero-sized.
-                    let has_data = mem::size_of::<Z>().min(1);
-                    if has_data == 1 {
+                    let has_data = mem::size_of::<Z>() != 0;
+                    if has_data {
                         // Pushing the function pointer as a userdata.
                         let lua_data = ffi::lua_newuserdata(
                             raw_lua.as_ptr(),
@@ -221,7 +227,7 @@ macro_rules! impl_function_ext {
                     }
 
                     // pushing wrapper as a closure
-                    let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
+                    let wrapper: RawFunction = wrapper::<Self, _, R>;
                     ffi::lua_pushcclosure(raw_lua.as_ptr(), Some(wrapper), has_data as libc::c_int);
                     Ok(PushGuard { lua, size: 1, raw_lua })
                 }
@@ -229,10 +235,10 @@ macro_rules! impl_function_ext {
         }
 
         impl<'lua, L, Z, R $(,$p: 'static)*> PushOne<L> for Function<Z, ($($p,)*), R>
-                where L: AsMutLua<'lua>,
-                      Z: 'lua + FnMut($($p),*) -> R,
-                      ($($p,)*): for<'p> LuaRead<&'p mut InsideCallback>,
-                      R: for<'a> Push<&'a mut InsideCallback> + 'static
+            where L: AsMutLua<'lua>,
+                  Z: 'lua + FnMut($($p),*) -> R,
+                  ($($p,)*): for<'p> LuaRead<&'p mut InsideCallback>,
+                  R: for<'a> Push<&'a mut InsideCallback> + 'static
         {
         }
     )
