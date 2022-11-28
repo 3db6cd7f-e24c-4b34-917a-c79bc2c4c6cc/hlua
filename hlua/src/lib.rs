@@ -316,7 +316,7 @@ where
 {
     #[inline]
     fn as_lua(&self) -> LuaContext {
-        self.lua.as_lua()
+        self.raw_lua
     }
 }
 
@@ -326,7 +326,7 @@ where
 {
     #[inline]
     fn as_mut_lua(&mut self) -> LuaContext {
-        self.lua.as_mut_lua()
+        self.raw_lua
     }
 }
 
