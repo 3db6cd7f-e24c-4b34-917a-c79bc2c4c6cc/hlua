@@ -23,7 +23,33 @@ macro_rules! impl_function {
                 marker: PhantomData,
             }
         }
+
+        impl<Z, R $(,$p)*> From<Z> for Function<Z, ($($p,)*), R>
+            where Z: FnMut($($p),*) -> R
+        {
+            #[inline]
+            fn from(func: Z) -> Self {
+                Function {
+                    function: func,
+                    marker: PhantomData,
+                }
+            }
+        }
     )
+}
+
+/// Wraps a type that implements `Into<Function<...>>` so that it can be used by hlua.
+pub fn function<F, P, R>(func: impl Into<Function<F, P, R>>) -> Function<F, P, R> {
+    // This function isn't able to discern lifetimes as well as the `functionX` ones are, so we're
+    // stuck keeping them around for now. Eventually we'll want to implement something similar to
+    // Bevy's systems / Axum's handlers, but for now this'll do.
+    //
+    // One example where calling `function` fails but `function1` does not is this closure:
+    // ```rs
+    // |foo: &Foo| foo.bar.as_str()
+    // ```
+
+    func.into()
 }
 
 impl_function!(function0,);

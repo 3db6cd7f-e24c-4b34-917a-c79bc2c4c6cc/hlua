@@ -137,8 +137,8 @@ use std::{
 
 pub use any::{AnyHashableLuaValue, AnyLuaString, AnyLuaValue};
 pub use functions_write::{
-    function0, function1, function10, function2, function3, function4, function5, function6,
-    function7, function8, function9, Function, InsideCallback,
+    function, function0, function1, function10, function2, function3, function4, function5,
+    function6, function7, function8, function9, Function, InsideCallback,
 };
 pub use lua_functions::{LuaCode, LuaCodeFromReader, LuaFunction, LuaFunctionCallError};
 pub use lua_tables::{LuaTable, LuaTableIterator};
