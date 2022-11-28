@@ -365,7 +365,7 @@ where
     let mut tmp_lua = InsideCallback { lua: unsafe { NonNull::new_unchecked(lua) } };
 
     // trying to read the arguments
-    let argc = unsafe { ffi::lua_gettop(lua) } as i32;
+    let argc = unsafe { ffi::lua_gettop(lua) };
     let args = match LuaRead::lua_read_at_position(&mut tmp_lua, -argc as libc::c_int) {
         Ok(a) => a,
         Err(_) => err_wrong_type(tmp_lua.lua),

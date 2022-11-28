@@ -113,7 +113,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
     let outdir = Path::new(&outdir);
     let luadir = outdir.join("lua");
 
-    dir::copy(luajit_dir, &outdir, &CopyOptions { overwrite: true, ..Default::default() })
+    dir::copy(luajit_dir, outdir, &CopyOptions { overwrite: true, ..Default::default() })
         .expect("failed to copy luajit source to out dir");
 
     println!("Building minilua.");
@@ -125,8 +125,8 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
         .compile("minilua");
 
     println!("Linking minilua.");
-    linker(&target)
-        .current_dir(&outdir)
+    linker(target)
+        .current_dir(outdir)
         .arg("/nologo")
         .arg("/out:minilua.exe")
         .arg(outdir.join("lua/src/host/minilua.o"))
@@ -173,7 +173,7 @@ fn build_luajit(lib_name: &str, luajit_dir: impl AsRef<Path>) -> io::Result<()> 
         .compile("buildvm");
 
     println!("Linking buildvm.");
-    linker(&target)
+    linker(target)
         .current_dir(outdir.join("buildvm"))
         .arg("/nologo")
         .arg("/out:../buildvm.exe")

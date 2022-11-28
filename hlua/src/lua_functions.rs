@@ -147,7 +147,7 @@ where
             assert_ne!(load_retval, ffi::LUA_ERRMEM, "memory allocation error");
             assert_eq!(load_retval, ffi::LUA_ERRSYNTAX, "unknown lua error");
 
-            return Err((LuaError::SyntaxError(error_msg), pushed_value.into_inner()));
+            Err((LuaError::SyntaxError(error_msg), pushed_value.into_inner()))
         }
     }
 }
