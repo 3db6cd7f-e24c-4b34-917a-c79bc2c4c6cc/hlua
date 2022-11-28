@@ -211,7 +211,7 @@ where
         V: for<'r, 's> PushOne<&'r mut PushGuard<&'s mut LuaTable<L>>, Err = Ve>,
     {
         unsafe {
-            let raw_lua = self.as_mut_lua().as_ptr();
+            let raw_lua = self.as_mut_lua();
             let my_offset = self.offset(-2);
 
             let mut guard = match index.push_to_lua(self) {
@@ -228,7 +228,7 @@ where
             };
 
             guard.forget();
-            ffi::lua_settable(raw_lua, my_offset);
+            ffi::lua_settable(raw_lua.as_ptr(), my_offset);
             Ok(())
         }
     }

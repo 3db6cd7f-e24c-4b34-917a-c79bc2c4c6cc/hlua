@@ -82,19 +82,20 @@ where
         use AnyLuaValue as Value;
 
         let mut lua = lua;
-        let raw_lua = lua.as_lua();
+        let raw_lua = lua.as_mut_lua();
 
         match unsafe { ffi::lua_type(raw_lua.as_ptr(), index) } {
             ffi::LUA_TNIL => Ok(Value::LuaNil),
-            ffi::LUA_TBOOLEAN => LuaRead::lua_read_at_position(lua, index).map(Value::LuaBoolean),
-            ffi::LUA_TNUMBER => LuaRead::lua_read_at_position(lua, index).map(Value::LuaNumber),
-            ffi::LUA_TSTRING => Err(lua)
+            ffi::LUA_TBOOLEAN => Err(raw_lua)
+                .or_else(|lua| LuaRead::lua_read_at_position(lua, index).map(Value::LuaBoolean)),
+            ffi::LUA_TNUMBER => Err(raw_lua)
+                .or_else(|lua| LuaRead::lua_read_at_position(lua, index).map(Value::LuaNumber)),
+            ffi::LUA_TSTRING => Err(raw_lua)
                 .or_else(|lua| LuaRead::lua_read_at_position(lua, index).map(Value::LuaString))
                 .or_else(|lua| LuaRead::lua_read_at_position(lua, index).map(Value::LuaAnyString)),
-            ffi::LUA_TTABLE => LuaTable::lua_read_at_position(lua.as_mut_lua(), index)
+            ffi::LUA_TTABLE => LuaTable::lua_read_at_position(raw_lua, index)
                 .map(|mut v| v.iter::<Value, Value>().flatten().collect())
-                .map(Value::LuaArray)
-                .map_err(|_| lua),
+                .map(Value::LuaArray),
             _ => Ok(Value::LuaOther),
         }
         .or(Ok(Value::LuaOther))
@@ -109,13 +110,14 @@ where
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
-        let raw_lua = lua.as_mut_lua();
         Ok(match self {
             AnyHashableLuaValue::LuaString(val) => val.push_no_err(lua),
             AnyHashableLuaValue::LuaAnyString(val) => val.push_no_err(lua),
             AnyHashableLuaValue::LuaInteger(val) => val.push_no_err(lua),
             AnyHashableLuaValue::LuaBoolean(val) => val.push_no_err(lua),
             AnyHashableLuaValue::LuaArray(val) => {
+                let raw_lua = lua.as_mut_lua();
+
                 // Pushing a `Vec<(AnyHashableLuaValue, AnyHashableLuaValue)>` on a `L` requires calling the
                 // function that pushes a `AnyHashableLuaValue` on a `&mut L`, which in turns requires
                 // calling the function that pushes a `AnyHashableLuaValue` on a `&mut &mut L`, and so on.
@@ -127,6 +129,8 @@ where
                 PushGuard { lua, size, raw_lua }
             },
             AnyHashableLuaValue::LuaNil => {
+                let raw_lua = lua.as_mut_lua();
+
                 unsafe { ffi::lua_pushnil(raw_lua.as_ptr()) };
                 PushGuard { lua, size: 1, raw_lua }
             },
@@ -148,21 +152,21 @@ where
         use AnyHashableLuaValue as Value;
 
         let mut lua = lua;
-        let raw_lua = lua.as_lua();
+        let raw_lua = lua.as_mut_lua();
 
         match unsafe { ffi::lua_type(raw_lua.as_ptr(), index) } {
             ffi::LUA_TNIL => Ok(Value::LuaNil),
-            ffi::LUA_TBOOLEAN => LuaRead::lua_read_at_position(lua, index).map(Value::LuaBoolean),
-            ffi::LUA_TNUMBER => Err(lua)
+            ffi::LUA_TBOOLEAN => Err(raw_lua)
+                .or_else(|lua| LuaRead::lua_read_at_position(lua, index).map(Value::LuaBoolean)),
+            ffi::LUA_TNUMBER => Err(raw_lua)
                 .or_else(|lua| LuaRead::lua_read_at_position(lua, index).map(Value::LuaInteger))
                 .or_else(|lua| LuaRead::lua_read_at_position(lua, index).map(Value::LuaString)),
-            ffi::LUA_TSTRING => Err(lua)
+            ffi::LUA_TSTRING => Err(raw_lua)
                 .or_else(|lua| LuaRead::lua_read_at_position(lua, index).map(Value::LuaString))
                 .or_else(|lua| LuaRead::lua_read_at_position(lua, index).map(Value::LuaAnyString)),
-            ffi::LUA_TTABLE => LuaTable::lua_read_at_position(lua.as_mut_lua(), index)
+            ffi::LUA_TTABLE => LuaTable::lua_read_at_position(raw_lua, index)
                 .map(|mut v| v.iter::<Value, Value>().flatten().collect())
-                .map(Value::LuaArray)
-                .map_err(|_| lua),
+                .map(Value::LuaArray),
 
             _ => Ok(Value::LuaOther),
         }

@@ -790,34 +790,34 @@ impl<'lua> Lua<'lua> {
         I: Borrow<str>,
         V: LuaRead<PushGuard<&'l mut Lua<'lua>>>,
     {
+        let raw_lua = self.as_mut_lua();
+
         let index = CString::new(index.borrow()).unwrap();
-        unsafe { ffi::lua_getglobal(self.lua.as_ptr(), index.as_ptr()) };
-        if unsafe { ffi::lua_isnil(self.as_lua().as_ptr(), -1) } {
-            let raw_lua = self.as_lua();
-            let _guard = PushGuard { lua: self, size: 1, raw_lua };
-            return None;
-        }
-        let raw_lua = self.as_lua();
+        unsafe { ffi::lua_getglobal(raw_lua.as_ptr(), index.as_ptr()) };
         let guard = PushGuard { lua: self, size: 1, raw_lua };
-        LuaRead::lua_read(guard).ok()
+
+        match unsafe { ffi::lua_isnil(raw_lua.as_ptr(), -1) } {
+            true => None,
+            false => LuaRead::lua_read(guard).ok(),
+        }
     }
 
     /// Reads the value of a global, capturing the context by value.
     #[inline]
-    pub fn into_get<V, I>(self, index: I) -> Result<V, PushGuard<Self>>
+    pub fn into_get<V, I>(mut self, index: I) -> Result<V, PushGuard<Self>>
     where
         I: Borrow<str>,
         V: LuaRead<PushGuard<Lua<'lua>>>,
     {
+        let raw_lua = self.as_mut_lua();
+
         let index = CString::new(index.borrow()).unwrap();
-        unsafe { ffi::lua_getglobal(self.lua.as_ptr(), index.as_ptr()) };
-        let is_nil = unsafe { ffi::lua_isnil(self.as_lua().as_ptr(), -1) };
-        let raw_lua = self.as_lua();
+        unsafe { ffi::lua_getglobal(raw_lua.as_ptr(), index.as_ptr()) };
         let guard = PushGuard { lua: self, size: 1, raw_lua };
-        if is_nil {
-            Err(guard)
-        } else {
-            LuaRead::lua_read(guard)
+
+        match unsafe { ffi::lua_isnil(raw_lua.as_ptr(), -1) } {
+            true => Err(guard),
+            false => LuaRead::lua_read(guard),
         }
     }
 

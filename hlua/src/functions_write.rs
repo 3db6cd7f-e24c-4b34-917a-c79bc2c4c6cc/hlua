@@ -225,7 +225,8 @@ macro_rules! impl_function_ext {
             #[inline]
             fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
                 unsafe {
-                    let raw_lua = lua.as_mut_lua();
+                    let raw_lua_ctx = lua.as_mut_lua();
+                    let raw_lua_ptr = raw_lua_ctx.as_ptr();
                     // TODO: What more exactly is Z, and do we need to ensure alignment?
 
                     // We can skip pushing the pointer when it's zero-sized.
@@ -233,7 +234,7 @@ macro_rules! impl_function_ext {
                     if has_data {
                         // Pushing the function pointer as a userdata.
                         let lua_data = ffi::lua_newuserdata(
-                            raw_lua.as_ptr(),
+                            raw_lua_ptr,
                             mem::size_of::<Z>() as libc::size_t
                         );
 
@@ -243,19 +244,19 @@ macro_rules! impl_function_ext {
 
                     // Only assign "__gc" if Z needs to be dropped.
                     if mem::needs_drop::<Z>() {
-                        ffi::lua_newtable(raw_lua.as_ptr());
+                        ffi::lua_newtable(raw_lua_ptr);
 
-                        "__gc".push_no_err(&mut lua).forget_internal();
-                        ffi::lua_pushcfunction(raw_lua.as_ptr(), Some(closure_destructor_wrapper::<Z>));
-                        ffi::lua_rawset(raw_lua.as_ptr(), -3);
+                        "__gc".push_no_err(raw_lua_ctx).forget_internal();
+                        ffi::lua_pushcfunction(raw_lua_ptr, Some(closure_destructor_wrapper::<Z>));
+                        ffi::lua_rawset(raw_lua_ptr, -3);
 
-                        ffi::lua_setmetatable(raw_lua.as_ptr(), -2);
+                        ffi::lua_setmetatable(raw_lua_ptr, -2);
                     }
 
                     // pushing wrapper as a closure
                     let wrapper: RawFunction = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(raw_lua.as_ptr(), Some(wrapper), has_data as libc::c_int);
-                    Ok(PushGuard { lua, size: 1, raw_lua })
+                    ffi::lua_pushcclosure(raw_lua_ptr, Some(wrapper), has_data as libc::c_int);
+                    Ok(PushGuard { lua, size: 1, raw_lua: raw_lua_ctx })
                 }
             }
         }

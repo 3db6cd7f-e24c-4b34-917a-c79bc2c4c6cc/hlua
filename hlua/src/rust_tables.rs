@@ -135,7 +135,7 @@ where
 {
     fn lua_read_at_position(lua: L, index: i32) -> Result<Self, L> {
         let mut me = lua;
-        let raw_lua = me.as_mut_lua().as_mut_lua();
+        let raw_lua = me.as_mut_lua();
 
         if unsafe { !ffi::lua_istable(raw_lua.as_ptr(), index) } {
             return Err(me);
@@ -178,7 +178,7 @@ where
         use std::mem::MaybeUninit;
 
         let mut me = lua;
-        let raw_lua = me.as_mut_lua().as_mut_lua();
+        let raw_lua = me.as_mut_lua();
 
         if unsafe { !ffi::lua_istable(raw_lua.as_ptr(), index) } {
             return Err(me);
