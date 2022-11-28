@@ -377,6 +377,7 @@ LJLIB_CF(debug_debug)
     lua_settop(L, 0);  /* remove eventual returns */
   }
   #endif
+  return 0;
 }
 
 /* ------------------------------------------------------------------------ */
