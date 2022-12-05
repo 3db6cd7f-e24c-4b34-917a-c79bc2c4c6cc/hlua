@@ -1,5 +1,5 @@
 use crate::{
-    ffix, AnyLuaValue, AsLua, AsMutLua, LuaContext, LuaRead, Push, PushGuard, PushOne, Void,
+    ffix, values::LuaNil, AsLua, AsMutLua, LuaContext, LuaRead, Push, PushGuard, PushOne, Void,
 };
 
 use ptr::NonNull;
@@ -328,7 +328,7 @@ where
     ) -> Result<PushGuard<&'a mut InsideCallback>, (P, &'a mut InsideCallback)> {
         match self {
             Ok(val) => val.push_to_lua(lua),
-            Err(val) => Ok((AnyLuaValue::LuaNil, val.to_string()).push_no_err(lua)),
+            Err(val) => Ok((LuaNil, val.to_string()).push_no_err(lua)),
         }
     }
 }

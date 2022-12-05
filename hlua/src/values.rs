@@ -1,6 +1,6 @@
 use std::{borrow::Cow, marker::PhantomData, mem, ops::Deref, slice, str};
 
-use crate::{AnyLuaString, AnyLuaValue, AsLua, AsMutLua, LuaRead, Push, PushGuard, PushOne, Void};
+use crate::{AnyLuaString, AsLua, AsMutLua, LuaRead, Push, PushGuard, PushOne, Void};
 
 macro_rules! integer_impl(
     ($t:ident) => (
@@ -114,6 +114,25 @@ unsigned_impl!(u32);
 
 numeric_impl!(f32);
 numeric_impl!(f64);
+
+#[derive(Copy, Clone)]
+pub struct LuaNil;
+
+impl<'lua, L> Push<L> for LuaNil
+where
+    L: AsMutLua<'lua>,
+{
+    type Err = Void;
+
+    #[inline(always)]
+    fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
+        let raw_lua = lua.as_mut_lua();
+        unsafe { ffi::lua_pushnil(raw_lua.as_ptr()) };
+        Ok(PushGuard { lua, size: 1, raw_lua })
+    }
+}
+
+impl<'lua, L> PushOne<L> for LuaNil where L: AsMutLua<'lua> {}
 
 impl<'lua, L> Push<L> for String
 where
@@ -342,7 +361,7 @@ where
     fn push_to_lua(self, lua: L) -> Result<PushGuard<L>, (E, L)> {
         match self {
             Some(val) => val.push_to_lua(lua),
-            None => Ok(AnyLuaValue::LuaNil.push_no_err(lua)),
+            None => Ok(LuaNil.push_no_err(lua)),
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::AsMutLua;
 
-use crate::{LuaRead, LuaTable, Push, PushGuard, PushOne, Void};
+use crate::{LuaNil, LuaRead, LuaTable, Push, PushGuard, PushOne, Void};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AnyLuaString(pub Vec<u8>);
@@ -44,30 +44,31 @@ where
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
+        // We're getting context once at the start instead of in each branch to generate
+        // cleaner (less repetetive) assembly. It's more idiomatic to change (almost) all
+        // branches to take `lua`, but we'd rather take better output.
         let raw_lua = lua.as_mut_lua();
-        Ok(match self {
-            AnyLuaValue::LuaString(val) => val.push_no_err(lua),
-            AnyLuaValue::LuaAnyString(val) => val.push_no_err(lua),
-            AnyLuaValue::LuaNumber(val) => val.push_no_err(lua),
-            AnyLuaValue::LuaInteger(val) => val.push_no_err(lua),
-            AnyLuaValue::LuaBoolean(val) => val.push_no_err(lua),
+
+        let guard = match self {
+            AnyLuaValue::LuaString(val) => val.push_no_err(raw_lua),
+            AnyLuaValue::LuaAnyString(val) => val.push_no_err(raw_lua),
+            AnyLuaValue::LuaNumber(val) => val.push_no_err(raw_lua),
+            AnyLuaValue::LuaInteger(val) => val.push_no_err(raw_lua),
+            AnyLuaValue::LuaBoolean(val) => val.push_no_err(raw_lua),
             AnyLuaValue::LuaArray(val) => {
                 // Pushing a `Vec<(AnyLuaValue, AnyLuaValue)>` on a `L` requires calling the
                 // function that pushes a `AnyLuaValue` on a `&mut L`, which in turns requires
                 // calling the function that pushes a `AnyLuaValue` on a `&mut &mut L`, and so on.
                 // In order to avoid this infinite recursion, we push the array on LuaContext instead.
-
-                // We also need to destroy and recreate the push guard, otherwise the type parameter
-                // doesn't match.
-                let size = val.push_no_err(raw_lua).forget_internal();
-                PushGuard { lua, size, raw_lua }
+                val.push_no_err(raw_lua)
             },
-            AnyLuaValue::LuaNil => {
-                unsafe { ffi::lua_pushnil(raw_lua.as_ptr()) };
-                PushGuard { lua, size: 1, raw_lua }
-            }, // Use ffi::lua_pushnil.
-            AnyLuaValue::LuaOther => panic!("can't push a AnyLuaValue of type Other"),
-        })
+            AnyLuaValue::LuaNil => LuaNil.push_no_err(raw_lua),
+            AnyLuaValue::LuaOther => panic!("can't push an AnyLuaValue of type Other"),
+        };
+
+        // We're reconstructing the type guard with the proper Lua type here.
+        let size = guard.forget_internal();
+        Ok(PushGuard { lua, size, raw_lua })
     }
 }
 
@@ -110,34 +111,32 @@ where
 
     #[inline]
     fn push_to_lua(self, mut lua: L) -> Result<PushGuard<L>, (Void, L)> {
-        Ok(match self {
-            AnyHashableLuaValue::LuaString(val) => val.push_no_err(lua),
-            AnyHashableLuaValue::LuaAnyString(val) => val.push_no_err(lua),
-            AnyHashableLuaValue::LuaInteger(val) => val.push_no_err(lua),
-            AnyHashableLuaValue::LuaBoolean(val) => val.push_no_err(lua),
+        // We're getting context once at the start instead of in each branch to generate
+        // cleaner (less repetetive) assembly. It's more idiomatic to change (almost) all
+        // branches to take `lua`, but we'd rather take better output.
+        let raw_lua = lua.as_mut_lua();
+
+        let guard = match self {
+            AnyHashableLuaValue::LuaString(val) => val.push_no_err(raw_lua),
+            AnyHashableLuaValue::LuaAnyString(val) => val.push_no_err(raw_lua),
+            AnyHashableLuaValue::LuaInteger(val) => val.push_no_err(raw_lua),
+            AnyHashableLuaValue::LuaBoolean(val) => val.push_no_err(raw_lua),
             AnyHashableLuaValue::LuaArray(val) => {
-                let raw_lua = lua.as_mut_lua();
-
-                // Pushing a `Vec<(AnyHashableLuaValue, AnyHashableLuaValue)>` on a `L` requires calling the
-                // function that pushes a `AnyHashableLuaValue` on a `&mut L`, which in turns requires
-                // calling the function that pushes a `AnyHashableLuaValue` on a `&mut &mut L`, and so on.
+                // Pushing a `Vec<(AnyLuaValue, AnyLuaValue)>` on a `L` requires calling the
+                // function that pushes a `AnyLuaValue` on a `&mut L`, which in turns requires
+                // calling the function that pushes a `AnyLuaValue` on a `&mut &mut L`, and so on.
                 // In order to avoid this infinite recursion, we push the array on LuaContext instead.
-
-                // We also need to destroy and recreate the push guard, otherwise the type parameter
-                // doesn't match.
-                let size = val.push_no_err(raw_lua).forget_internal();
-                PushGuard { lua, size, raw_lua }
+                val.push_no_err(raw_lua)
             },
-            AnyHashableLuaValue::LuaNil => {
-                let raw_lua = lua.as_mut_lua();
-
-                unsafe { ffi::lua_pushnil(raw_lua.as_ptr()) };
-                PushGuard { lua, size: 1, raw_lua }
-            },
+            AnyHashableLuaValue::LuaNil => LuaNil.push_no_err(raw_lua),
             AnyHashableLuaValue::LuaOther => {
-                panic!("can't push a AnyHashableLuaValue of type Other")
+                panic!("can't push an AnyHashableLuaValue of type Other")
             },
-        })
+        };
+
+        // We're reconstructing the type guard with the proper Lua type here.
+        let size = guard.forget_internal();
+        Ok(PushGuard { lua, size, raw_lua })
     }
 }
 
@@ -176,7 +175,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{AnyHashableLuaValue, AnyLuaString, AnyLuaValue, Lua, LuaFunction};
+    use crate::{AnyHashableLuaValue, AnyLuaString, AnyLuaValue, Lua, LuaFunction, LuaNil};
 
     #[test]
     fn read_numbers() {
@@ -445,6 +444,16 @@ mod tests {
 
     #[test]
     fn push_nil() {
+        let mut lua = Lua::new();
+
+        lua.set("a", LuaNil);
+
+        let x: Option<i32> = lua.get("a");
+        assert!(x.is_none(), "x is a Some value when it should be a None value. X: {:?}", x);
+    }
+
+    #[test]
+    fn push_any_nil() {
         let mut lua = Lua::new();
 
         lua.set("a", AnyLuaValue::LuaNil);

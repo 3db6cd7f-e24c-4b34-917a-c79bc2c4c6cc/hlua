@@ -145,7 +145,7 @@ pub use lua_tables::{LuaTable, LuaTableIterator};
 pub use rust_tables::IntoIteratorWrapper;
 pub use tuples::TuplePushError;
 pub use userdata::{push_userdata, read_userdata, UserdataOnStack};
-pub use values::StringInLua;
+pub use values::{LuaNil, StringInLua};
 
 mod any;
 mod ffix;
