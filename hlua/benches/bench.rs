@@ -17,16 +17,12 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     lua.set("func", hlua::function0(|| 1));
     c.bench_function("[lua -> c] call func(): 1 (x10000)", |b| {
-        b.iter(|| {
-            lua.execute::<()>("for i=0,10000 do func() end").unwrap();
-        })
+        b.iter(|| lua.execute::<()>("for i=0,10000 do func() end").unwrap())
     });
 
     lua.set("func", hlua::function1(|x: u32| x));
     c.bench_function("[lua -> c] call func(u32): u32 (x10000)", |b| {
-        b.iter(|| {
-            lua.execute::<()>("for i=0,10000 do func(1) end").unwrap();
-        })
+        b.iter(|| lua.execute::<()>("for i=0,10000 do func(1) end").unwrap())
     });
 
     #[derive(Copy, Clone)]
@@ -38,23 +34,17 @@ fn criterion_benchmark(c: &mut Criterion) {
     lua.set("val", Foo(1));
     lua.set("func", hlua::function1(|x: &Foo| *x));
     c.bench_function("[lua -> c] call func(Foo): Foo (x10000)", |b| {
-        b.iter(|| {
-            lua.execute::<()>("for i=0,10000 do func(val) end").unwrap();
-        })
+        b.iter(|| lua.execute::<()>("for i=0,10000 do func(val) end").unwrap())
     });
 
     lua.set("func", hlua::function1(|_: &Foo| {}));
     c.bench_function("[lua -> c] call func(Foo) (x10000)", |b| {
-        b.iter(|| {
-            lua.execute::<()>("for i=0,10000 do func(val) end").unwrap();
-        })
+        b.iter(|| lua.execute::<()>("for i=0,10000 do func(val) end").unwrap())
     });
 
     lua.set("func", hlua::function0(|| Foo(1)));
     c.bench_function("[lua -> c] call func(): Foo (x10000)", |b| {
-        b.iter(|| {
-            lua.execute::<()>("for i=0,10000 do func() end").unwrap();
-        })
+        b.iter(|| lua.execute::<()>("for i=0,10000 do func() end").unwrap())
     });
 }
 
